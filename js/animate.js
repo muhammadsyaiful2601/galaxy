@@ -29,7 +29,32 @@ app.animate = function () {
   }
   if (app.starfieldParticles) {
     app.starfieldParticles.position.copy(app.camera.position);
-    app.starfieldParticles.rotation.y = -elapsedTime * 0.004;
+
+    if (app.isWarping) {
+      // Efek warp: bintang meregang membentuk garis ke arah gerak kamera
+      const stretch = 1 + (app.clock.getElapsedTime() % 1) * 6;
+      app.starfieldParticles.scale.set(1, 1, stretch);
+      app.starfieldParticles.rotation.y = -elapsedTime * 0.04;
+      app.starfieldParticles.rotation.x = Math.sin(elapsedTime * 0.5) * 0.1;
+
+      // Tampilkan kecepatan super di HUD saat warp
+      const speedHUD = document.getElementById('hud-speed');
+      if (speedHUD) {
+        const warpSpeed = 999 + Math.sin(elapsedTime * 10) * 50;
+        speedHUD.innerText = warpSpeed.toFixed(1) + ' LY/s';
+        speedHUD.className = 'font-orbitron text-amber-400 font-bold text-xs animate-pulse';
+      }
+    } else {
+      app.starfieldParticles.scale.set(1, 1, 1);
+      app.starfieldParticles.rotation.y = -elapsedTime * 0.004;
+      app.starfieldParticles.rotation.x = 0;
+
+      const speedHUD = document.getElementById('hud-speed');
+      if (speedHUD) {
+        speedHUD.innerText = '0.00 LY/s';
+        speedHUD.className = 'font-orbitron text-slate-300 font-bold text-xs';
+      }
+    }
   }
 
   app.orbits.forEach((o) => {
@@ -84,8 +109,8 @@ app.animate = function () {
   if (app.keys['KeyA']) moveVec.x -= 1;
   if (app.keys['KeyD']) moveVec.x += 1;
 
-  // WASD movement
-  const moveSpeed = 30;
+  // WASD movement — kecepatan bervariasi menurut tipe spaceship
+  const moveSpeed = app.shipSpeedMap ? app.shipSpeedMap[app.currentShipType] || 30 : 30;
 
   if (moveVec.lengthSq() > 0) {
     moveVec.normalize().multiplyScalar(moveSpeed * delta);

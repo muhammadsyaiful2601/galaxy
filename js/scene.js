@@ -24,6 +24,13 @@ app.activeTarget = null;
 app.isWarping = false;
 app.followTarget = null;
 app.warpTarget = null;
+
+// Kecepatan gerak per tipe spaceship (satuan per detik)
+app.shipSpeedMap = {
+  recon: 45,   // cepat, cetak kelincah
+  heavy: 20,   // lambat, tahan lumpur
+  ufo: 32      // sedang, teknologi alien
+};
 app.followTargetPosition = new THREE.Vector3();
 app._targetMovement = new THREE.Vector3();
 app.distanceLODNodes = [];
