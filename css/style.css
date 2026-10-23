@@ -1,0 +1,227 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+#canvas-container {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #020205;
+  font-family: 'Rajdhani', sans-serif;
+  color: #e0f2fe;
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', sans-serif;
+}
+
+/* 1. GLASSMORPHISM - All panels with backdrop blur and transparent background */
+.hud-panel {
+  background: rgba(8, 12, 24, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Stronger glass for panels that overlay 3D scene */
+#target-card.hud-panel,
+#warp-menu .hud-panel,
+.hud-panel {
+  background: rgba(6, 10, 20, 0.6);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(5, 8, 16, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 2px;
+}
+
+#crosshair {
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+#warp-overlay {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(circle, transparent 30%, rgba(15, 23, 42, 0.9) 80%, #020205 100%);
+}
+
+.scan-line {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.15) 51%);
+  background-size: 100% 4px;
+  z-index: 25;
+}
+
+/* Volume slider styling */
+input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  background: #22d3ee;
+  border-radius: 50%;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 2px;
+  cursor: pointer;
+  background: #334155;
+  border-radius: 1px;
+}
+
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s infinite ease-in-out;
+}
+
+@keyframes warp-zoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}
+
+/* Collapse state for left panels */
+.panel-collapsed .panel-content {
+  display: none;
+}
+.panel-collapsed .panel-toggle i {
+  transform: rotate(180deg);
+}
+
+/* 5. Active state styling for Camera View buttons */
+.view-btn-active {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+#right-sidebar {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#warp-menu .hud-panel {
+  max-height: min(42vh, 340px);
+}
+
+.warp-btn {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+}
+.warp-btn span:first-child {
+  font-size: 16px;
+}
+.warp-btn span:nth-child(2) {
+  font-weight: 700;
+}
+.warp-btn span:last-child {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  header {
+    align-items: stretch;
+    gap: 10px;
+    padding: 0 6px;
+    top: 6px;
+  }
+  header .hud-panel {
+    width: 100%;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+  header .hud-panel > div {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+  header {
+    flex-direction: column;
+    width: 100%;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 4px;
+  }
+  header nav > div {
+    padding: 0 2px;
+  }
+  header nav .w-px {
+    display: none;
+  }
+  aside.top-24.left-4 {
+    top: 140px;
+    left: 6px;
+    width: auto;
+    max-width: 92vw;
+  }
+  #right-sidebar {
+    top: 140px;
+    right: 6px;
+    width: auto;
+    max-width: 90vw;
+    max-height: calc(100vh - 152px);
+  }
+  .ship-card {
+    padding: 2px 4px;
+    gap: 2px;
+  }
+  .ship-card .w-10 {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  .ship-card span.font-orbitron {
+    font-size: 0.7rem;
+  }
+  .ship-card p {
+    font-size: 0.65rem;
+    display: none;
+  }
+  #warp-menu .hud-panel {
+    max-height: 40vh;
+  }
+  .warp-btn {
+    padding: 0.5rem 0.75rem;
+  }
+  .warp-btn span:first-child {
+    font-size: 14px;
+  }
+  .warp-btn span:nth-child(2) {
+    font-size: 0.65rem;
+  }
+  .warp-btn span:last-child {
+    font-size: 0.6rem;
+  }
+}

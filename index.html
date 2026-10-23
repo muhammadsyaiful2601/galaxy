@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interstellar Odyssey - Realistic Space Explorer</title>
+
+  <script src="https://cdn.tailwindcss.com" onerror="cdnLoadFailed('Tailwind CSS')"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onerror="cdnLoadFailed('FontAwesome')">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="cdnLoadFailed('Three.js')"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" onerror="cdnLoadFailed('OrbitControls')"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" onerror="cdnLoadFailed('GLTFLoader')"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" onerror="cdnLoadFailed('GSAP')"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <script src="js/config.js"></script>
+  <script src="js/textures.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/interaction.js"></script>
+  <script src="js/animate.js"></script>
+  <script src="js/main.js"></script>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
+
+  <div class="scan-line"></div>
+
+  <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-crosshair"></div>
+
+  <div id="warp-overlay" class="absolute inset-0 z-10"></div>
+
+  <!-- Warp tunnel visual effect (radial streaks) -->
+  <div id="warp-tunnel" class="absolute inset-0 z-20 pointer-events-none opacity-0 transition-opacity duration-300">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_600%_600%_at_50%_50%,transparent_0%_,rgba(6,182,212,0.15)_60%_,rgba(168,85,247,0.1)_100%)] animate-[spin_20s_linear_infinite]"></div>
+    <div class="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0%_,transparent_2%_,rgba(6,182,212,0.08)_2%_,rgba(6,182,212,0.08)_4%_,transparent_4%_,transparent_100%)] animate-[warp-zoom_3s_linear_infinite] opacity-60"></div>
+    <div class="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0%_,transparent_2%_,rgba(168,85,247,0.06)_2%_,rgba(168,85,247,0.06)_4%_,transparent_4%_,transparent_100%)] animate-[warp-zoom_4s_linear_infinite_reverse] opacity-40"></div>
+  </div>
+
+  <!-- Warp progress bar overlay -->
+  <div id="warp-progress-container" class="absolute top-0 left-0 w-full z-30 h-1 bg-slate-900/50 opacity-0 transition-opacity duration-300 pointer-events-none">
+    <div id="warp-progress-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear shadow-[0_0_15px_rgba(6,182,212,0.8)]"></div>
+  </div>
+
+  <!-- Cancel warp button (appears during active warp) -->
+  <button id="btn-cancel-warp" onclick="cancelWarp()" class="fixed bottom-40 left-1/2 -translate-x-1/2 z-40 hud-panel px-6 py-3 rounded-xl border border-cyan-500/50 bg-slate-900/80 text-cyan-300 font-orbitron font-bold text-sm tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+    <i class="fa-solid fa-ban text-xs"></i>
+    <span>CANCEL WARP</span>
+  </button>
+
+  <div id="crosshair" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center pointer-events-none opacity-50">
+    <div class="w-10 h-10 border border-white/20 rounded-full flex items-center justify-center relative">
+      <div class="w-1 h-1 bg-white rounded-full"></div>
+      <div class="absolute -top-0.5 w-0.5 h-2 bg-white"></div>
+      <div class="absolute -bottom-0.5 w-0.5 h-2 bg-white"></div>
+      <div class="absolute -left-0.5 h-0.5 w-2 bg-white"></div>
+      <div class="absolute -right-0.5 h-0.5 w-2 bg-white"></div>
+    </div>
+  </div>
+
+  <header class="absolute top-4 left-4 right-4 z-30 flex flex-wrap justify-between items-center gap-4 pointer-events-none px-4">
+    <div class="hud-panel px-4 py-2 rounded-xl flex items-center gap-3 pointer-events-auto text-center md:text-left">
+      <div class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-300 text-lg shadow-lg">
+        <i class="fa-solid font-orbitron fa-shuttle-space"></i>
+      </div>
+      <div>
+        <h1 class="font-orbitron font-extrabold text-sm md:text-base text-white tracking-wider flex items-center gap-1.5 leading-tight">
+          INTERSTELLAR <span class="text-slate-300">ODYSSEY</span>
+        </h1>
+        <div class="flex items-center gap-2 text-[10px] text-slate-400/70">
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-ping"></span>
+          <span>SECTOR 07-X • LINK STABLE</span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="hud-panel px-4 py-2 rounded-xl flex items-center gap-3 text-sm pointer-events-auto">
+      <div class="text-center hidden md:block">
+        <p class="text-[10px] text-slate-400 tracking-wider">NAV SPEED</p>
+        <p id="hud-speed" class="font-orbitron text-slate-300 font-bold text-xs">0.00 LY/s</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center">
+        <p class="text-[10px] text-slate-400 tracking-wider">CURRENT TARGET</p>
+        <p id="hud-target-name" class="font-orbitron text-slate-300 font-bold text-xs">DEEP SPACE</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center">
+        <p class="text-[10px] text-slate-400 tracking-wider">DISTANCE</p>
+        <p id="hud-distance" class="font-orbitron text-slate-300 font-bold text-xs">0 AU</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center flex items-center gap-1" id="audio-controls">
+        <button id="btn-audio-mute" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all text-[10px]">
+          <i class="fa-solid fa-volume-up"></i>
+        </button>
+        <input type="range" id="audio-volume" min="0" max="1" step="0.1" value="0.6" class="w-16 h-1 bg-slate-700 rounded accent-cyan-400 appearance-none cursor-pointer">
+      </div>
+    </nav>
+  </header>
+
+  <!-- LEFT PANELS: SPACECRAFT + CONTROLS with collapse toggle -->
+  <aside class="absolute top-24 left-4 z-30 md:w-80 w-auto max-w-[92vw] flex flex-col gap-3 pointer-events-auto">
+
+    <!-- SPACECRAFT Panel -->
+    <div id="panel-spacecraft" class="hud-panel p-3 md:p-4 rounded-2xl panel-collapsible">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-orbitron text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+          <i class="fa-solid fa-rocket mr-1"></i> Spacecraft
+          <span class="text-[10px] bg-white/10 text-slate-300 px-2 py-0.5 rounded-full border border-white/10">Hangar</span>
+        </h2>
+        <button onclick="togglePanel('panel-spacecraft')" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+          <i id="icon-spacecraft" class="fa-solid fa-chevron-up text-[9px]"></i>
+        </button>
+      </div>
+      <div id="content-spacecraft" class="panel-content">
+        <div class="flex flex-col gap-2">
+          <button id="btn-ship-recon" onclick="selectShip('recon')" class="ship-card active text-left p-2 rounded-xl border border-slate-600/60 bg-slate-800/60 hover:bg-slate-700/80 transition-all flex items-center gap-2 group">
+            <div class="w-8 h-8 rounded bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-jet-fighter text-sm"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <span class="font-orbitron text-xs font-bold text-slate-200 truncate">RECON</span>
+                <span class="text-[10px] text-slate-400 font-mono">Light</span>
+              </div>
+              <p class="text-[9px] text-slate-400 line-clamp-1">Interceptor</p>
+            </div>
+          </button>
+          <button id="btn-ship-heavy" onclick="selectShip('heavy')" class="ship-card text-left p-2 rounded-xl border border-slate-700/60 bg-slate-900/50 hover:bg-slate-700/40 transition-all flex items-center gap-2 group">
+            <div class="w-8 h-8 rounded bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-rocket text-sm"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <span class="font-orbitron text-xs font-bold text-slate-200 truncate">HEAVY SHIP</span>
+                <span class="text-[10px] text-slate-400 font-mono">Heavy</span>
+              </div>
+              <p class="text-[9px] text-slate-400 line-clamp-1\">Bomber class</p>
+            </div>
+          </button>
+          <button id="btn-ship-ufo" onclick="selectShip('ufo')" class="ship-card text-left p-2 rounded-xl border border-slate-700/60 bg-slate-900/50 hover:bg-slate-700/40 transition-all flex items-center gap-2 group">
+            <div class="w-8 h-8 rounded bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-compact-disc text-sm animate-spin" style="animation-duration: 8s;"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <span class="font-orbitron text-xs font-bold text-slate-200 truncate">ALIEN UFO</span>
+                <span class="text-[10px] text-slate-400 font-mono">Quantum</span>
+              </div>
+              <p class="text-[9px] text-slate-400 line-clamp-1">Gravity saucer</p>
+            </div>
+          </button>
+        </div>
+
+        <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center">
+          <span class="text-[10px] text-slate-400 font-semibold">Camera View</span>
+          <div class="flex rounded bg-slate-900/80 p-0.5 border border-slate-700">
+            <button id="view-3rd" onclick="setViewMode('3rd')" class="view-btn px-2 py-0.5 rounded-md text-[10px] font-orbitron text-slate-500 hover:text-white transition-all view-btn-3rd">3rd</button>
+            <button id="view-1st" onclick="setViewMode('1st')" class="view-btn px-2 py-0.5 rounded-md text-[10px] font-orbitron text-slate-500 hover:text-white transition-all view-btn-1st">1st</button>
+            <button id="view-free" onclick="setViewMode('free')" class="view-btn px-2 py-0.5 rounded-md text-[10px] font-orbitron text-slate-500 hover:text-white transition-all view-btn-free">Free</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLS Panel -->
+    <div id="panel-controls" class="hud-panel p-3 rounded-xl border border-white/10 panel-collapsible">
+      <div class="flex items-center justify-between mb-1">
+        <div class="font-orbitron text-slate-300 text-[10px] font-bold tracking-wider uppercase flex items-center gap-2">
+          <i class="fa-solid fa-gamepad mr-1"></i> Controls
+        </div>
+        <button onclick="togglePanel('panel-controls')" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+          <i id="icon-controls" class="fa-solid fa-chevron-up text-[9px]"></i>
+        </button>
+      </div>
+      <div id="content-controls" class="panel-content">
+        <!-- 2. Increased secondary font size + high contrast white/light gray -->
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">WASD:</span>
+          <span class="text-white font-mono font-medium">Fly</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Click body:</span>
+          <span class="text-white font-mono font-medium">Warp</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">L-click drag:</span>
+          <span id="control-look-action" class="text-white font-mono font-medium">Orbit</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Scroll:</span>
+          <span class="text-white font-mono font-medium">Zoom</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">R-click drag:</span>
+          <span class="text-white font-mono font-medium">Pan</span>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <div id="right-sidebar" class="absolute top-24 right-4 z-30 md:w-80 w-auto max-w-[90vw] max-h-[calc(100vh-7rem)] flex flex-col gap-3 pointer-events-none">
+  <!-- RIGHT PANEL: CELESTIAL BODY with increased secondary font -->
+  <aside id="target-card" class="w-full shrink-0 hud-panel p-3 md:p-5 rounded-2xl transition-all pointer-events-auto">
+    <div class="flex justify-between items-start mb-2">
+      <div>
+        <span class="text-[9px] font-mono text-slate-400 uppercase tracking-widest">Celestial Body</span>
+        <h3 id="target-title" class="font-orbitron text-base md:text-lg font-bold text-slate-200 mt-0.5">Milky Way Core</h3>
+      </div>
+      <button onclick="resetCameraView()" class="w-6 h-6 rounded bg-slate-800 border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white flex items-center justify-center transition-all">
+        <i class="fa-solid fa-rotate-left text-[10px]"></i>
+      </button>
+    </div>
+    <p id="target-desc" class="text-slate-300 text-xs md:text-sm leading-relaxed mb-3">Central galactic nucleus.</p>
+    <div class="grid grid-cols-2 gap-1.5 mb-3">
+      <div class="bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+        <span class="text-slate-400 block text-[9px] sm:text-xs uppercase">Classification</span>
+        <span id="target-class" class="text-white font-bold text-sm sm:text-base">Galactic Center</span>
+      </div>
+      <div class="bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+        <span class="text-slate-400 block text-[9px] sm:text-xs uppercase">Diameter</span>
+        <span id="target-size" class="text-white font-bold text-sm sm:text-base">100,000 LY</span>
+      </div>
+      <div class="bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+        <span class="text-slate-400 block text-[9px] sm:text-xs uppercase">Temp / State</span>
+        <span id="target-temp" class="text-white font-bold text-sm sm:text-base">3,500,000 K</span>
+      </div>
+      <div class="bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+        <span class="text-slate-400 block text-[9px] sm:text-xs uppercase">Satellites</span>
+        <span id="target-satellites" class="text-white font-bold text-sm sm:text-base">Billions</span>
+      </div>
+    </div>
+    <button id="btn-engage-warp" onclick="warpToCurrentTarget()" class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-orbitron font-bold text-xs tracking-wider uppercase border border-slate-600 transition-all flex items-center justify-center gap-2">
+      <i class="fa-solid fa-bolt text-amber-400 text-xs"></i>
+      <span>Engage Warp</span>
+    </button>
+  </aside>
+
+  <!-- QUICK WARP DESTINATIONS -->
+  <aside id="warp-menu" class="w-full min-h-0 pointer-events-auto">
+    <div class="hud-panel p-2 rounded-2xl border border-white/10 flex flex-col gap-1.5 min-h-0">
+      <div class="flex items-center justify-between px-3 py-1">
+        <span class="text-[9px] font-orbitron text-slate-400 font-bold uppercase tracking-wider">Quick Warp Destinations</span>
+        <button onclick="toggleWarpMenu()" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+          <i class="fa-solid fa-chevron-up text-[9px]"></i>
+        </button>
+      </div>
+      <div id="warp-list" class="flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden px-2 pb-2">
+        <button onclick="flyToNodeByName('Sun')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>☀️</span><span>Sun</span><span class="text-xs opacity-50 ml-1">Core</span>
+        </button>
+        <button onclick="flyToNodeByName('Mercury')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>☿</span><span>Mercury</span><span class="text-xs opacity-50 ml-1">Planet</span>
+        </button>
+        <button onclick="flyToNodeByName('Venus')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>♀</span><span>Venus</span><span class="text-xs opacity-50 ml-1">Planet</span>
+        </button>
+        <button onclick="flyToNodeByName('Earth')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌍</span><span>Earth</span><span class="text-xs opacity-50 ml-1">Sol</span>
+        </button>
+        <button onclick="flyToNodeByName('Mars')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🔴</span><span>Mars</span><span class="text-xs opacity-50 ml-1">Planet</span>
+        </button>
+        <button onclick="flyToNodeByName('Jupiter')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>♃</span><span>Jupiter</span><span class="text-xs opacity-50 ml-1">Planet</span>
+        </button>
+        <button onclick="flyToNodeByName('Saturn')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>♄</span><span>Saturn</span><span class="text-xs opacity-50 ml-1">Rings</span>
+        </button>
+        <button onclick="flyToNodeByName('Uranus')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>♅</span><span>Uranus</span><span class="text-xs opacity-50 ml-1">Planet</span>
+        </button>
+        <button onclick="flyToNodeByName('Neptune')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>♆</span><span>Neptune</span><span class="text-xs opacity-50 ml-1">Planet</span>
+        </button>
+        <button onclick="flyToNodeByName('Kepler-186f')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌱</span><span>Kepler-186f</span><span class="text-xs opacity-50 ml-1">Exo</span>
+        </button>
+        <button onclick="flyToNodeByName('Andromeda')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌀</span><span>Andromeda</span><span class="text-xs opacity-50 ml-1">Galaxy</span>
+        </button>
+        <button onclick="flyToNodeByName('Triangulum')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌀</span><span>Triangulum</span><span class="text-xs opacity-50 ml-1">Galaxy</span>
+        </button>
+        <button onclick="flyToNodeByName('Sombrero')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🎩</span><span>Sombrero</span><span class="text-xs opacity-50 ml-1">Galaxy</span>
+        </button>
+        <button onclick="flyToNodeByName('The Void')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌌</span><span>The Void</span><span class="text-xs opacity-50 ml-1">Empty</span>
+        </button>
+        <button onclick="flyToNodeByName('Pillars of Creation')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🏔️</span><span>Pillars</span><span class="text-xs opacity-50 ml-1">Nebula</span>
+        </button>
+        <button onclick="flyToNodeByName('Sagittarius A*')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>⚫</span><span>Sag A*</span><span class="text-xs opacity-50 ml-1">Black Hole</span>
+        </button>
+        <button onclick="flyToNodeByName('Stephenson 2-18')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌟</span><span>Stephenson 2-18</span><span class="text-xs opacity-50 ml-1">Star</span>
+        </button>
+        <button onclick="flyToNodeByName('UY Scuti')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌟</span><span>UY Scuti</span><span class="text-xs opacity-50 ml-1">Star</span>
+        </button>
+        <button onclick="flyToNodeByName('VY Canis Majoris')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌟</span><span>VY CMa</span><span class="text-xs opacity-50 ml-1">Star</span>
+        </button>
+        <button onclick="flyToNodeByName('R136a1')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌟</span><span>R136a1</span><span class="text-xs opacity-50 ml-1">Star</span>
+        </button>
+        <button onclick="flyToNodeByName('Pistol Star')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌟</span><span>Pistol</span><span class="text-xs opacity-50 ml-1">Star</span>
+        </button>
+        <button onclick="flyToNodeByName('IC 1101')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌀</span><span>IC 1101</span><span class="text-xs opacity-50 ml-1">Galaxy</span>
+        </button>
+        <button onclick="flyToNodeByName('Hercules-Corona Borealis')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🌌</span><span>H-C Borealis</span><span class="text-xs opacity-50 ml-1">Supercluster</span>
+        </button>
+        <button onclick="flyToNodeByName('Nebula Station')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🛰️</span><span>Nebula Station</span><span class="text-xs opacity-50 ml-1">Station</span>
+        </button>
+        <button onclick="flyToNodeByName('Autonomous Alien UFO')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🛸</span><span>Alien UFO</span><span class="text-xs opacity-50 ml-1">Craft</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+  </div>
+
+  <div id="toast" class="absolute top-20 left-1/2 -translate-x-1/2 z-40 hud-panel px-4 py-2 rounded-full border border-white/20 text-slate-200 text-[10px] font-orbitron tracking-wider opacity-0 transition-opacity pointer-events-none flex items-center gap-1.5">
+    <i class="fa-solid fa-circle-info text-slate-300 text-[10px]"></i>
+    <span id="toast-text">Target locked.</span>
+  </div>
+
+  <!-- Planet Fact Popup -->
+  <div id="planet-popup" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hud-panel p-5 md:p-6 rounded-2xl max-w-md w-full mx-4 opacity-0 pointer-events-none transition-opacity duration-300 transform scale-95">
+    <div class="flex justify-between items-start mb-3">
+      <h3 id="popup-title" class="font-orbitron font-bold text-xl text-white tracking-wider">Planet</h3>
+      <button onclick="closePlanetPopup()" class="w-8 h-8 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all">
+        <i class="fa-solid fa-times text-xs"></i>
+      </button>
+    </div>
+    <p id="popup-fact" class="text-slate-300 leading-relaxed mb-4 text-sm md:text-base"></p>
+    <div class="grid grid-cols-2 gap-2 text-xs md:text-sm">
+      <div class="bg-slate-900/50 p-2 rounded border border-slate-800/50">
+        <span class="text-slate-500 block text-[10px] uppercase">Klasifikasi</span>
+        <span id="popup-class" class="text-slate-200 font-bold">-</span>
+      </div>
+      <div class="bg-slate-900/50 p-2 rounded border border-slate-800/50">
+        <span class="text-slate-500 block text-[10px] uppercase">Diameter</span>
+        <span id="popup-size" class="text-slate-200 font-bold">-</span>
+      </div>
+      <div class="bg-slate-900/50 p-2 rounded border border-slate-800/50">
+        <span class="text-slate-500 block text-[10px] uppercase">Suhu</span>
+        <span id="popup-temp" class="text-slate-200 font-bold">-</span>
+      </div>
+      <div class="bg-slate-900/50 p-2 rounded border border-slate-800/50">
+        <span class="text-slate-500 block text-[10px] uppercase">Satelit</span>
+        <span id="popup-sat" class="text-slate-200 font-bold">-</span>
+      </div>
+    </div>
+    <div class="mt-4 pt-3 border-t border-white/10 flex justify-end">
+      <button onclick="closePlanetPopup()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron text-xs font-bold transition-all">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+</body>
+</html>
