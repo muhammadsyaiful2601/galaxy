@@ -324,89 +324,30 @@ app.createSpiralGalaxy = function () {
   app.scene.add(app.galaxyParticles);
 };
 
-app.createStarfield = function () {
-  const count = app.getParticleCount(5500);
-  const divisions = 3;
-  const cellSize = 3200 / divisions;
-  const chunks = Array.from({ length: divisions ** 3 }, () => ({
-    positions: [],
-    colors: [],
-    glowPositions: [],
-    glowColors: []
-  }));
+app.createMilkyWay = function () {
+  const loader = new THREE.GLTFLoader();
+  loader.load('asset3D/object/space.glb', (gltf) => {
+    const milkyWay = gltf.scene;
+    milkyWay.name = 'Milky Way';
 
-  for (let i = 0; i < count; i++) {
-    const x = (Math.random() - 0.5) * 3200;
-    const y = (Math.random() - 0.5) * 3200;
-    const z = (Math.random() - 0.5) * 3200;
-    const ix = Math.min(divisions - 1, Math.floor((x + 1600) / cellSize));
-    const iy = Math.min(divisions - 1, Math.floor((y + 1600) / cellSize));
-    const iz = Math.min(divisions - 1, Math.floor((z + 1600) / cellSize));
-    const chunk = chunks[ix * divisions * divisions + iy * divisions + iz];
-    const centerX = -1600 + (ix + 0.5) * cellSize;
-    const centerY = -1600 + (iy + 0.5) * cellSize;
-    const centerZ = -1600 + (iz + 0.5) * cellSize;
-    chunk.positions.push(x - centerX, y - centerY, z - centerZ);
+    // Skala besar sebagai background galaksi Bima Sakti
+    milkyWay.scale.setScalar(100);
 
-    const c = Math.random() > 0.9 ? 3 : Math.random() > 0.7 ? 1 : 0;
-    const color = [
-      c === 0 ? 1 : c === 1 ? 0.85 : 0.55,
-      c === 0 ? 1 : c === 1 ? 0.9 : 0.8,
-      c === 0 ? 1 : c === 1 ? 0.95 : 1
-    ];
-    chunk.colors.push(...color);
-    if (c === 3 || (c === 1 && Math.random() < 0.15)) {
-      chunk.glowPositions.push(x - centerX, y - centerY, z - centerZ);
-      chunk.glowColors.push(...color);
-    }
-  }
+    milkyWay.traverse((child) => {
+      if (child.isMesh) {
+        child.name = 'Milky Way';
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
 
-  const starMaterial = new THREE.PointsMaterial({
-    size: 1.4,
-    map: app.getStarTexture(),
-    vertexColors: true,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    opacity: 0.9
+    app.starfieldParticles = milkyWay;
+    app.scene.add(milkyWay);
+    app.celestialNodes.push(milkyWay);
+    app.addDistanceLOD(milkyWay, 200, 0xffffff, 5000);
+  }, undefined, (err) => {
+    console.error('Gagal memuat model space.glb:', err);
   });
-  const glowMaterial = new THREE.PointsMaterial({
-    size: 5,
-    map: app.getGlowTexture(),
-    vertexColors: true,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    opacity: 0.42
-  });
-  app.starfieldParticles = new THREE.Group();
-  chunks.forEach((chunk, index) => {
-    if (chunk.positions.length === 0) return;
-    const ix = Math.floor(index / (divisions * divisions));
-    const iy = Math.floor((index / divisions) % divisions);
-    const iz = index % divisions;
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(chunk.positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(chunk.colors, 3));
-    const chunkPosition = new THREE.Vector3(
-      -1600 + (ix + 0.5) * cellSize,
-      -1600 + (iy + 0.5) * cellSize,
-      -1600 + (iz + 0.5) * cellSize
-    );
-    const stars = new THREE.Points(geometry, starMaterial);
-    stars.position.copy(chunkPosition);
-    app.starfieldParticles.add(stars);
-
-    if (chunk.glowPositions.length > 0) {
-      const glowGeometry = new THREE.BufferGeometry();
-      glowGeometry.setAttribute('position', new THREE.Float32BufferAttribute(chunk.glowPositions, 3));
-      glowGeometry.setAttribute('color', new THREE.Float32BufferAttribute(chunk.glowColors, 3));
-      const glowStars = new THREE.Points(glowGeometry, glowMaterial);
-      glowStars.position.copy(chunkPosition);
-      app.starfieldParticles.add(glowStars);
-    }
-  });
-  app.scene.add(app.starfieldParticles);
 };
 
 app.createNebula = function () {
