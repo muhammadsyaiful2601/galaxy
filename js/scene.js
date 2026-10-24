@@ -526,7 +526,8 @@ app.createSolarSystem = function () {
       'Jupiter': 'asset3D/object/jupiter.glb',
       'Saturn': 'asset3D/object/saturn.glb',
       'Uranus': 'asset3D/object/uranus_4k.glb',
-      'Neptune': 'asset3D/object/neptune.glb'
+      'Neptune': 'asset3D/object/neptune.glb',
+      'Kepler-186f': 'asset3D/object/kepler-186f.glb'
     };
 
     const planetLoader = new THREE.GLTFLoader();
@@ -661,17 +662,6 @@ app.createSolarSystem = function () {
     });
   });
 
-  const keplerGroup = new THREE.Group();
-  keplerGroup.name = 'Kepler-186f';
-  keplerGroup.position.set(320, 40, -90);
-  const kepler = app.createLODPlanet(EARTH_RADIUS_WORLD * 1.17, createTexture((c, w, h) => drawPlanet(c, w, h, '#0f4c5c', '#4a9e7a', '#e0f7fa')), 0x4a9e7a);
-  app.addAtmosphere(kepler, 0x4a9e7a, 1.25, 0.2);
-  kepler.name = 'Kepler-186f';
-  keplerGroup.add(kepler);
-  app.scene.add(keplerGroup);
-  app.celestialNodes.push(keplerGroup);
-  app.addDistanceLOD(keplerGroup, 4, 0x4a9e7a, 700);
-
   const stationGroup = new THREE.Group();
   stationGroup.name = 'Nebula Station';
   stationGroup.position.set(-140, 45, -110);
@@ -709,21 +699,6 @@ app.createAutonomousUFO = function () {
       ufoModel.position.copy(center).multiplyScalar(-scale);
       app.autonomousUFO.add(ufoModel);
 
-      // Efek cahaya dan sinar prosedural di sekeliling model GLB
-      const spotLight = new THREE.SpotLight(0x22c55e, 6, 45, Math.PI / 6, 0.5, 1);
-      spotLight.position.set(0, 0, 0);
-      spotLight.target.position.set(0, -22, 0);
-      app.autonomousUFO.add(spotLight);
-      app.autonomousUFO.add(spotLight.target);
-
-      const coneSegs = app.getSegmentCount(48);
-      const cone = new THREE.Mesh(
-        new THREE.ConeGeometry(9, coneSegs, coneSegs, 1, true),
-        new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
-      );
-      cone.position.y = -14;
-      app.autonomousUFO.add(cone);
-
       app.celestialNodes.push(app.autonomousUFO);
       app.addDistanceLOD(app.autonomousUFO, 25, 0x22c55e, 250);
     }, undefined, (err) => {
@@ -746,20 +721,6 @@ app.createAutonomousUFO = function () {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(5.6, 0.25, segs, segs), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
       ring.rotation.x = Math.PI / 2;
       app.autonomousUFO.add(ring);
-
-      const spotLight = new THREE.SpotLight(0x22c55e, 6, 45, Math.PI / 6, 0.5, 1);
-      spotLight.position.set(0, 0, 0);
-      spotLight.target.position.set(0, -22, 0);
-      app.autonomousUFO.add(spotLight);
-      app.autonomousUFO.add(spotLight.target);
-
-      const coneSegs = app.getSegmentCount(48);
-      const cone = new THREE.Mesh(
-        new THREE.ConeGeometry(9, coneSegs, coneSegs, 1, true),
-        new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
-      );
-      cone.position.y = -14;
-      app.autonomousUFO.add(cone);
 
       app.celestialNodes.push(app.autonomousUFO);
       app.addDistanceLOD(app.autonomousUFO, 25, 0x22c55e, 250);

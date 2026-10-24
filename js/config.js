@@ -271,5 +271,6 @@ const ORBIT_CONFIG = [
   { name: 'Jupiter', radius: 520, speed: 0.008, radiusWorld: EARTH_RADIUS_WORLD * 11.21, moons: 4 },
   { name: 'Saturn',  radius: 958, speed: 0.006, radiusWorld: EARTH_RADIUS_WORLD * 9.45, moons: 3, rings: true },
   { name: 'Uranus',  radius: 1920, speed: 0.004, radiusWorld: EARTH_RADIUS_WORLD * 4.01, moons: 0, atmosphere: 0x9cd7f0 },
-  { name: 'Neptune', radius: 3010, speed: 0.003, radiusWorld: EARTH_RADIUS_WORLD * 3.88, moons: 0, atmosphere: 0x3b82f6 }
+  { name: 'Neptune', radius: 3010, speed: 0.003, radiusWorld: EARTH_RADIUS_WORLD * 3.88, moons: 0, atmosphere: 0x3b82f6 },
+  { name: 'Kepler-186f', radius: 3600, speed: 0.0025, radiusWorld: EARTH_RADIUS_WORLD * 1.17, moons: 0, atmosphere: 0x4a9e7a }
 ];
