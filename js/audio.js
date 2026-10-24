@@ -41,6 +41,8 @@ window.app.audio = {
   warpPlaying: false,
   enginePlaying: false,
   shipSoundPlaying: null,
+  ambientNormalVolume: 0.5,
+  ambientEngineVolume: 0.15,
 
   init: function () {
     if (this.initialized) return;
@@ -109,7 +111,7 @@ window.app.audio = {
     if (this.ambientAudio) return;
     this.ambientAudio = new Audio('sound/ambient-sound.mp3');
     this.ambientAudio.loop = true;
-    this.ambientAudio.volume = this.volume * 0.5;
+    this.ambientAudio.volume = this.volume * this.ambientNormalVolume;
     this.ambientAudio.play().catch(e => {
       document.addEventListener('pointerdown', () => this.ambientAudio.play().catch(() => {}), { once: true });
       document.addEventListener('keydown', () => this.ambientAudio.play().catch(() => {}), { once: true });
@@ -341,9 +343,17 @@ window.app.audio = {
     if (active && !this.enginePlaying) {
       this.engineGain.gain.linearRampToValueAtTime(0.015, this.ctx.currentTime + 0.1);
       this.enginePlaying = true;
+      // Kurangi volume ambient saat engine aktif agar suara mesin lebih terdengar
+      if (this.ambientAudio) {
+        this.ambientAudio.volume = this.volume * this.ambientEngineVolume;
+      }
     } else if (!active && this.enginePlaying) {
       this.engineGain.gain.linearRampToValueAtTime(0.0, this.ctx.currentTime + 0.2);
       this.enginePlaying = false;
+      // Kembalikan volume ambient normal saat engine mati
+      if (this.ambientAudio) {
+        this.ambientAudio.volume = this.volume * this.ambientNormalVolume;
+      }
     }
   },
 
@@ -351,7 +361,8 @@ window.app.audio = {
   setVolume: function (v) {
     this.volume = Math.max(0, Math.min(1, v));
     if (this.masterGain) this.masterGain.gain.value = this.muted ? 0 : this.volume;
-    if (this.ambientAudio) this.ambientAudio.volume = this.muted ? 0 : this.volume * 0.5;
+    // Gunakan ambientNormalVolume sebagai baseline (jika engine aktif, playEngine akan override)
+    if (this.ambientAudio) this.ambientAudio.volume = this.muted ? 0 : this.volume * this.ambientNormalVolume;
     if (this.warpAudio) this.warpAudio.volume = this.muted ? 0 : this.volume * 0.7;
     if (this.reconAudio) this.reconAudio.volume = this.muted ? 0 : this.volume * 0.6;
     if (this.heavyAudio) this.heavyAudio.volume = this.muted ? 0 : this.volume * 0.6;
@@ -362,7 +373,7 @@ window.app.audio = {
     if (!this.initialized) this.init();
     this.muted = !this.muted;
     if (this.masterGain) this.masterGain.gain.value = this.muted ? 0 : this.volume;
-    if (this.ambientAudio) this.ambientAudio.volume = this.muted ? 0 : this.volume * 0.5;
+    if (this.ambientAudio) this.ambientAudio.volume = this.muted ? 0 : this.volume * this.ambientNormalVolume;
     if (this.warpAudio) this.warpAudio.volume = this.muted ? 0 : this.volume * 0.7;
     if (this.reconAudio) this.reconAudio.volume = this.muted ? 0 : this.volume * 0.6;
     if (this.heavyAudio) this.heavyAudio.volume = this.muted ? 0 : this.volume * 0.6;
@@ -373,7 +384,7 @@ window.app.audio = {
   setMuted: function (muted) {
     this.muted = muted;
     if (this.masterGain) this.masterGain.gain.value = muted ? 0 : this.volume;
-    if (this.ambientAudio) this.ambientAudio.volume = muted ? 0 : this.volume * 0.5;
+    if (this.ambientAudio) this.ambientAudio.volume = muted ? 0 : this.volume * this.ambientNormalVolume;
     if (this.warpAudio) this.warpAudio.volume = muted ? 0 : this.volume * 0.7;
     if (this.reconAudio) this.reconAudio.volume = muted ? 0 : this.volume * 0.6;
     if (this.heavyAudio) this.heavyAudio.volume = muted ? 0 : this.volume * 0.6;
