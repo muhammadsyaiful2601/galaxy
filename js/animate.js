@@ -159,7 +159,10 @@ app.animate = function () {
       app.audio.playEngine(true);
     }
     if (app.audio && typeof app.audio.playShipSound === 'function') {
-      app.audio.playShipSound(app.currentShipType);
+      if (app._lastShipSoundType !== app.currentShipType) {
+        app.audio.playShipSound(app.currentShipType);
+        app._lastShipSoundType = app.currentShipType;
+      }
     }
   } else {
     if (app.audio && typeof app.audio.playEngine === 'function') {
@@ -167,6 +170,7 @@ app.animate = function () {
     }
     if (app.audio && typeof app.audio.stopShipSound === 'function') {
       app.audio.stopShipSound();
+      app._lastShipSoundType = null;
     }
   }
 

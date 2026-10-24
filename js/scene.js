@@ -28,6 +28,7 @@ app.isAligning = false;
 app.currentAlignTween = null;
 app.isCountdown = false;
 app.currentCountdownInterval = null;
+app._lastShipSoundType = null;
 app.ufoState = {
   currentTarget: null,
   changeTimer: 0,

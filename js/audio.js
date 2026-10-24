@@ -149,6 +149,9 @@ window.app.audio = {
   playShipSound: function (shipType) {
     if (this.muted) return;
 
+    // Jika sudah sedang memutar ship type yang sama, jangan memutar ulang
+    if (this.shipSoundPlaying === shipType) return;
+
     // Stop sound kapal sebelumnya jika ada
     this.stopShipSound();
 
