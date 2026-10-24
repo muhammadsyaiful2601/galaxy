@@ -183,7 +183,7 @@ app.animate = function () {
     app.activeShipGroup.visible = app.currentViewMode === '3rd';
   }
 
-  if (app.activeShipGroup && app.currentViewMode !== 'free') {
+  if (app.activeShipGroup && app.currentViewMode !== 'free' && !app.isAligning) {
     if (app.currentViewMode === '3rd') {
       const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(app.camera.quaternion);
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(app.camera.quaternion);

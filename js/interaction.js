@@ -104,7 +104,7 @@ app.flyToNodeByName = function (name) {
 };
 
 app.warpToCurrentTarget = function (customDuration = null) {
-  if (!app.activeTarget || app.isWarping) return;
+  if (!app.activeTarget || app.isWarping || app.isAligning) return;
 
   app.warpTarget = app.activeTarget;
   const targetPos = new THREE.Vector3();
@@ -126,7 +126,7 @@ app.warpToCurrentTarget = function (customDuration = null) {
   app.audio.playClick('warp-btn');
   app.audio.playWarpFile();
 
-  app.isWarping = true;
+  // Siapkan elemen UI warp (tampil saat alignment selesai)
   const overlay = document.getElementById('warp-overlay');
   const tunnel = document.getElementById('warp-tunnel');
   const progressContainer = document.getElementById('warp-progress-container');
@@ -139,71 +139,144 @@ app.warpToCurrentTarget = function (customDuration = null) {
   cancelBtn.style.opacity = '1';
   cancelBtn.style.pointerEvents = 'auto';
 
-  const cameraOffset = app.camera.position.clone().sub(targetPos);
-  if (cameraOffset.lengthSq() === 0) {
-    cameraOffset.set(22, 18, 36);
-  }
-  cameraOffset.setLength(Math.max(50, Math.min(cameraOffset.length(), 90)));
-
-  let duration = customDuration;
-  if (!duration) {
-    duration = Math.max(2.6, Math.min(60, currentDist * 0.006));
-  }
-
-  app.showToast('WARP DRIVE ENGAGED -> ' + app.warpTarget.name.toUpperCase());
-
-  // Store reference for cancel
-  const startCamera = app.camera.position.clone();
-  const startControlsTarget = app.controls.target.clone();
-  const destinationCam = new THREE.Vector3();
-  const warpProgress = { value: 0 };
-  app.currentWarpTL = gsap.timeline({
-    onComplete: () => {
-      app.finishWarp(true);
-    }
-  });
-
+  // ============================================================
+  // FASE 1: Alignment — putar spaceship menghadap ke target
+  // ============================================================
+  app.isAligning = true;
   app.controls.enabled = false;
+  app.showToast('MENGARAH KE ' + app.warpTarget.name.toUpperCase() + '...');
 
-  app.currentWarpTL.to(warpProgress, {
+  const startQuat = app.activeShipGroup ? app.activeShipGroup.quaternion.clone() : new THREE.Quaternion();
+
+  // Hitung arah dari kamera ke target (hanya bidang XZ, tanpa miring ke atas/bawah)
+  const dir = new THREE.Vector3().subVectors(targetPos, app.camera.position);
+  dir.y = 0;
+  if (dir.lengthSq() > 0.0001) {
+    dir.normalize();
+  } else {
+    // Jika sudah di posisi target, jangan putar
+    dir.copy(new THREE.Vector3(0, 0, -1));
+  }
+
+  const targetQuat = new THREE.Quaternion();
+  targetQuat.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
+
+  const alignProgress = { value: 0 };
+  const ALIGN_DURATION = 1.5;
+
+  app.currentAlignTween = gsap.to(alignProgress, {
     value: 1,
-    duration: duration,
-    ease: 'power3.inOut',
+    duration: ALIGN_DURATION,
+    ease: 'power2.inOut',
     onUpdate: () => {
-      app.warpTarget.getWorldPosition(targetPos);
-      app.controls.target.copy(startControlsTarget).lerp(targetPos, warpProgress.value);
-      destinationCam.copy(targetPos).add(cameraOffset);
-      app.camera.position.copy(startCamera).lerp(destinationCam, warpProgress.value);
-    }
-  }, 0);
-
-  // Animate progress bar
-  app.currentWarpProgressTween = gsap.to(progressBar, {
-    width: '100%',
-    duration: duration,
-    ease: 'none'
-  });
-
-  const speedHUD = document.getElementById('hud-speed');
-  gsap.to({ val: 0 }, {
-    val: 99.9,
-    duration: 1.2,
-    yoyo: true,
-    repeat: 1,
-    onUpdate: function () {
-      speedHUD.innerText = this.targets()[0].val.toFixed(2) + ' LY/s';
+      if (app.activeShipGroup) {
+        app.activeShipGroup.quaternion.slerpQuaternions(startQuat, targetQuat, alignProgress.value);
+      }
     },
     onComplete: () => {
-      speedHUD.innerText = '0.00 LY/s';
+      app.isAligning = false;
+      app.currentAlignTween = null;
+      app.showToast('WARP DRIVE ENGAGED -> ' + app.warpTarget.name.toUpperCase());
+      startWarpPhase();
     }
   });
+
+  // ============================================================
+  // FASE 2: Warp — efek visual dan pergerakan kamera
+  // ============================================================
+  function startWarpPhase() {
+    app.isWarping = true;
+
+    // Store reference for cancel
+    const startCamera = app.camera.position.clone();
+    const startControlsTarget = app.controls.target.clone();
+    const destinationCam = new THREE.Vector3();
+    const warpProgress = { value: 0 };
+
+    app.controls.enabled = false;
+
+    const cameraOffset = app.camera.position.clone().sub(targetPos);
+    if (cameraOffset.lengthSq() === 0) {
+      cameraOffset.set(22, 18, 36);
+    }
+    cameraOffset.setLength(Math.max(50, Math.min(cameraOffset.length(), 90)));
+
+    let duration = customDuration;
+    if (!duration) {
+      duration = Math.max(2.6, Math.min(60, currentDist * 0.006));
+    }
+
+    app.currentWarpTL = gsap.timeline({
+      onComplete: () => {
+        app.finishWarp(true);
+      }
+    });
+
+    app.currentWarpTL.to(warpProgress, {
+      value: 1,
+      duration: duration,
+      ease: 'power3.inOut',
+      onUpdate: () => {
+        app.warpTarget.getWorldPosition(targetPos);
+        app.controls.target.copy(startControlsTarget).lerp(targetPos, warpProgress.value);
+        destinationCam.copy(targetPos).add(cameraOffset);
+        app.camera.position.copy(startCamera).lerp(destinationCam, warpProgress.value);
+      }
+    }, 0);
+
+    // Animate progress bar
+    app.currentWarpProgressTween = gsap.to(progressBar, {
+      width: '100%',
+      duration: duration,
+      ease: 'none'
+    });
+
+    const speedHUD = document.getElementById('hud-speed');
+    gsap.to({ val: 0 }, {
+      val: 99.9,
+      duration: 1.2,
+      yoyo: true,
+      repeat: 1,
+      onUpdate: function () {
+        speedHUD.innerText = this.targets()[0].val.toFixed(2) + ' LY/s';
+      },
+      onComplete: () => {
+        speedHUD.innerText = '0.00 LY/s';
+      }
+    });
+  }
 };
 
 app.cancelWarp = function () {
-  if (!app.isWarping) return;
+  if (!app.isWarping && !app.isAligning) return;
 
   app.audio.playClick('ui');
   app.audio.stopWarpFile();
+
+  // Kill alignment tween jika sedang fase alignment
+  if (app.isAligning) {
+    app.isAligning = false;
+    if (app.currentAlignTween) {
+      app.currentAlignTween.kill();
+      app.currentAlignTween = null;
+    }
+    // Sembunyikan UI warp yang sudah ditampilkan
+    const overlay = document.getElementById('warp-overlay');
+    const tunnel = document.getElementById('warp-tunnel');
+    const progressContainer = document.getElementById('warp-progress-container');
+    const cancelBtn = document.getElementById('btn-cancel-warp');
+    if (overlay) overlay.style.opacity = '0';
+    if (tunnel) tunnel.style.opacity = '0';
+    if (progressContainer) progressContainer.style.opacity = '0';
+    if (cancelBtn) {
+      cancelBtn.style.opacity = '0';
+      cancelBtn.style.pointerEvents = 'none';
+    }
+    app.warpTarget = null;
+    app.controls.enabled = app.currentViewMode !== '1st';
+    app.showToast('WARP DIBATALKAN');
+    return;
+  }
 
   // Kill the GSAP timeline
   if (app.currentWarpTL) {
@@ -223,6 +296,7 @@ app.cancelWarp = function () {
 app.finishWarp = function (arrived = true) {
   const arrivalTarget = app.warpTarget || app.activeTarget;
   app.isWarping = false;
+  app.isAligning = false;
   app.warpTarget = null;
   app.audio.stopWarpFile();
   const overlay = document.getElementById('warp-overlay');

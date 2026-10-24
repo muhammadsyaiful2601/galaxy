@@ -24,6 +24,8 @@ app.activeTarget = null;
 app.isWarping = false;
 app.followTarget = null;
 app.warpTarget = null;
+app.isAligning = false;
+app.currentAlignTween = null;
 
 // Kecepatan gerak per tipe spaceship (satuan per detik)
 app.shipSpeedMap = {
