@@ -12,6 +12,8 @@ app.galaxyParticles = null;
 app.starfieldParticles = null;
 app.celestialNodes = [];
 app.orbits = [];
+app.moons = [];
+app.solarBodyRadii = {};
 app.orbitLines = [];
 app.activeShipGroup = null;
 app.shipMeshMap = {};
@@ -41,9 +43,23 @@ app.ufoState = {
   wanderDirection: new THREE.Vector3(1, 0, 0),
   desiredVelocity: new THREE.Vector3(),
   toHome: new THREE.Vector3(),
+  toPlayer: new THREE.Vector3(),
   wanderTimer: 0,
   bobPhase: 0,
   spin: 0,
+};
+app.combat = {
+  playerHealth: 100,
+  playerMaxHealth: 100,
+  ufoHealth: 120,
+  ufoMaxHealth: 120,
+  hostile: false,
+  playerShotCooldown: 0,
+  enemyShotCooldown: 0,
+  playerRespawnTimer: 0,
+  ufoRespawnTimer: 0,
+  projectiles: [],
+  effects: [],
 };
 
 // Kecepatan gerak per tipe spaceship (satuan per detik)
@@ -161,7 +177,7 @@ app.getStarTexture = function () {
   return app.starTexture;
 };
 
-app.createLODPlanet = function (radius, map, glowColor = 0xffffff) {
+app.createLODPlanet = function (radius, map, glowColor = 0xffffff, useGlowSprite = true) {
   const lod = new THREE.LOD();
   const highGeo = new THREE.SphereGeometry(radius, app.getSegmentCount(48), app.getSegmentCount(48));
   const highMat = new THREE.MeshStandardMaterial({ map, roughness: 0.7, metalness: 0.1 });
@@ -178,15 +194,17 @@ app.createLODPlanet = function (radius, map, glowColor = 0xffffff) {
   const lowMesh = new THREE.Mesh(lowGeo, lowMat);
   lod.addLevel(lowMesh, radius * 8);
 
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: app.getGlowTexture(),
-    color: glowColor,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
-  }));
-  sprite.scale.set(radius * 3.5, radius * 3.5, 1);
-  lod.addLevel(sprite, Math.max(500, radius * 20));
+  if (useGlowSprite) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: app.getGlowTexture(),
+      color: glowColor,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    }));
+    sprite.scale.set(radius * 3.5, radius * 3.5, 1);
+    lod.addLevel(sprite, Math.max(500, radius * 20));
+  }
 
   lod.updateMatrixWorld();
   lod.matrixAutoUpdate = true;
@@ -215,7 +233,7 @@ app.initEngine = function () {
   app.scene.fog = new THREE.FogExp2(0x020205, 0.00005);
   app.scene.background = new THREE.Color(0x020205);
 
-  app.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200000);
+  app.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 200000);
   app.camera.position.set(-200, 80, 240);
   app.camera.lookAt(0, 0, 0);
   app.scene.add(app.camera);
@@ -231,11 +249,13 @@ app.initEngine = function () {
   app.controls.enableDamping = true;
   app.controls.dampingFactor = 0.04;
   app.controls.maxDistance = 150000;
-  app.controls.minDistance = 4;
+  app.controls.minDistance = 0.001;
   const initialLookDirection = new THREE.Vector3();
   app.camera.getWorldDirection(initialLookDirection);
   app.controls.target.copy(app.camera.position).add(initialLookDirection.multiplyScalar(100));
   app.controls.update();
+  app.playerSpawnPosition = app.camera.position.clone();
+  app.playerSpawnTarget = app.controls.target.clone();
 
   const ambient = new THREE.AmbientLight(0x404060, 0.4);
   app.scene.add(ambient);
@@ -256,7 +276,7 @@ app.createPlanet = function (radius, map, segments = 64) {
   return new THREE.Mesh(geo, mat);
 };
 
-app.addAtmosphere = function (mesh, color, scale = 1.22, opacity = 0.18) {
+app.addAtmosphere = function (mesh, color, scale = 1.22, opacity = 0.18, radius = null) {
   if (mesh.isLOD) {
     mesh.children.slice(0, 2).forEach((level) => {
       const r = level.geometry.parameters.radius;
@@ -268,7 +288,7 @@ app.addAtmosphere = function (mesh, color, scale = 1.22, opacity = 0.18) {
     });
     return;
   }
-  const r = mesh.geometry.parameters.radius;
+  const r = radius || mesh.geometry.parameters.radius;
   const geo = new THREE.SphereGeometry(r, 64, 64);
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.BackSide, depthWrite: false });
   const atm = new THREE.Mesh(geo, mat);
@@ -276,14 +296,73 @@ app.addAtmosphere = function (mesh, color, scale = 1.22, opacity = 0.18) {
   mesh.add(atm);
 };
 
-app.createOrbitLine = function (radius) {
-  const curve = new THREE.EllipseCurve(0, 0, radius, radius);
-  const points = curve.getPoints(128);
+app.getKeplerPosition = function (elements, semiMajorAxis, julianDate, target = new THREE.Vector3()) {
+  const daysSinceJ2000 = julianDate - 2451545;
+  const centuriesSinceJ2000 = daysSinceJ2000 / 36525;
+  const eccentricity = Math.max(0, Math.min(
+    0.99,
+    elements.eccentricity + (elements.eccentricityRate || 0) * centuriesSinceJ2000
+  ));
+  const inclination = THREE.MathUtils.degToRad(
+    elements.inclination + (elements.inclinationRate || 0) * centuriesSinceJ2000
+  );
+  const ascendingNode = THREE.MathUtils.degToRad(
+    elements.ascendingNode + (elements.ascendingNodeRate || 0) * centuriesSinceJ2000
+  );
+  const argumentPerihelion = THREE.MathUtils.degToRad(
+    elements.argumentPerihelion + (elements.argumentPerihelionRate || 0) * centuriesSinceJ2000
+  );
+  const meanAnomaly = THREE.MathUtils.euclideanModulo(
+    THREE.MathUtils.degToRad(elements.meanAnomaly)
+      + (daysSinceJ2000 / elements.periodDays) * Math.PI * 2,
+    Math.PI * 2
+  );
+
+  let eccentricAnomaly = meanAnomaly;
+  for (let i = 0; i < 6; i++) {
+    eccentricAnomaly -= (eccentricAnomaly - eccentricity * Math.sin(eccentricAnomaly) - meanAnomaly)
+      / (1 - eccentricity * Math.cos(eccentricAnomaly));
+  }
+
+  const orbitalX = semiMajorAxis * (Math.cos(eccentricAnomaly) - eccentricity);
+  const orbitalY = semiMajorAxis * Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(eccentricAnomaly);
+  const cosPerihelion = Math.cos(argumentPerihelion);
+  const sinPerihelion = Math.sin(argumentPerihelion);
+  const xInPlane = cosPerihelion * orbitalX - sinPerihelion * orbitalY;
+  const yInPlane = sinPerihelion * orbitalX + cosPerihelion * orbitalY;
+  const cosNode = Math.cos(ascendingNode);
+  const sinNode = Math.sin(ascendingNode);
+  const cosInclination = Math.cos(inclination);
+  const sinInclination = Math.sin(inclination);
+  const eclipticX = cosNode * xInPlane - sinNode * cosInclination * yInPlane;
+  const eclipticY = sinNode * xInPlane + cosNode * cosInclination * yInPlane;
+  const eclipticZ = sinInclination * yInPlane;
+
+  return target.set(eclipticX, eclipticZ, -eclipticY);
+};
+
+app.createOrbitLine = function (radius, elements = null) {
+  let points;
+  if (elements) {
+    const julianEpoch = 2451545;
+    const segments = 256;
+    points = [];
+    for (let i = 0; i < segments; i++) {
+      const eccentricAnomaly = (i / segments) * Math.PI * 2;
+      const meanAnomaly = eccentricAnomaly - elements.eccentricity * Math.sin(eccentricAnomaly);
+      const julianDate = julianEpoch
+        + ((meanAnomaly - THREE.MathUtils.degToRad(elements.meanAnomaly)) / (Math.PI * 2))
+          * elements.periodDays;
+      points.push(app.getKeplerPosition(elements, radius, julianDate));
+    }
+  } else {
+    const curve = new THREE.EllipseCurve(0, 0, radius, radius);
+    points = curve.getPoints(128).map((point) => new THREE.Vector3(point.x, 0, point.y));
+  }
+
   const geo = new THREE.BufferGeometry().setFromPoints(points);
   const mat = new THREE.LineBasicMaterial({ color: 0xa8b8d0, transparent: true, opacity: 0.22 });
-  const line = new THREE.LineLoop(geo, mat);
-  line.rotation.x = Math.PI / 2;
-  return line;
+  return new THREE.LineLoop(geo, mat);
 };
 
 app.createSpiralGalaxy = function () {
@@ -490,8 +569,7 @@ app.createSolarSystem = function () {
         child.receiveShadow = true;
       }
     });
-    // Skala model agar cocok dengan skala tata surya yang ada
-    sunModel.scale.setScalar(1.0);
+    fitPlanetModelToRadius(sunModel, 696340 / KM_PER_WORLD_UNIT);
     app.sunMesh = sunModel;
     app.sunMesh.name = 'Sun';
     sunGroup.add(app.sunMesh);
@@ -499,7 +577,7 @@ app.createSolarSystem = function () {
   }, undefined, (err) => {
     console.error('Gagal memuat model sun.glb:', err);
     // Fallback ke sphere prosedural jika model gagal dimuat
-    const sunMeshTemp = app.createPlanet(9, createTexture(drawSun, 1024, 512), 96);
+    const sunMeshTemp = app.createPlanet(696340 / KM_PER_WORLD_UNIT, createTexture(drawSun, 1024, 512), 96);
     app.sunMesh = new THREE.Mesh(
       sunMeshTemp.geometry,
       new THREE.MeshStandardMaterial({
@@ -513,7 +591,9 @@ app.createSolarSystem = function () {
     app.sunLight.position.copy(sunGroup.position);
   });
 
-  const coronaGeo = new THREE.SphereGeometry(11.5, 64, 64);
+  const sunRadiusWorld = 696340 / KM_PER_WORLD_UNIT;
+  app.solarBodyRadii.Sun = sunRadiusWorld;
+  const coronaGeo = new THREE.SphereGeometry(sunRadiusWorld * 1.2, 64, 64);
   const coronaMat = new THREE.MeshBasicMaterial({
     color: 0xff6600,
     transparent: true,
@@ -526,15 +606,38 @@ app.createSolarSystem = function () {
 
   app.scene.add(sunGroup);
   app.celestialNodes.push(sunGroup);
-  app.addDistanceLOD(sunGroup, 12, 0xffaa33, 1200);
+
+  const addSolarMoons = (planetGroup, planet) => {
+    (SOLAR_MOON_CONFIG[planet.name] || []).forEach((moon) => {
+      const moonGroup = new THREE.Group();
+      moonGroup.name = moon.name + ' Orbit';
+      const moonMesh = app.createLODPlanet(
+        moon.radiusKm / KM_PER_WORLD_UNIT,
+        createTexture(drawMoon, 256, 256),
+        0xd9d2c5,
+        false
+      );
+      moonMesh.name = moon.name;
+      moonGroup.add(moonMesh);
+      planetGroup.add(moonGroup);
+      app.celestialNodes.push(moonMesh);
+      app.solarBodyRadii[moon.name] = moon.radiusKm / KM_PER_WORLD_UNIT;
+      app.moons.push({
+        group: moonGroup,
+        radius: moon.orbitRadiusKm / KM_PER_WORLD_UNIT,
+        periodDays: moon.periodDays
+      });
+    });
+  };
 
   ORBIT_CONFIG.forEach((p) => {
+    if (!p.elements.illustrative) app.solarBodyRadii[p.name] = p.radiusWorld;
     const group = new THREE.Group();
     group.name = p.name;
     group.position.set(p.radius, 0, 0);
 
     // Orbit line (sinkron, tidak bergantung pada model)
-    const orbitLine = app.createOrbitLine(p.radius);
+    const orbitLine = app.createOrbitLine(p.radius, p.elements);
     app.scene.add(orbitLine);
     app.orbitLines.push(orbitLine);
 
@@ -564,31 +667,22 @@ app.createSolarSystem = function () {
 
       fitPlanetModelToRadius(planetModel, p.radiusWorld);
       group.add(planetModel);
+      if (p.atmosphere) app.addAtmosphere(group, p.atmosphere, p.atmosphereScale, 0.18, p.radiusWorld);
 
       // Saturn: cincin
       if (p.rings) {
-        const ringGeo = new THREE.RingGeometry(p.radiusWorld * 1.35, p.radiusWorld * 2.1, 64);
+        const ringGeo = new THREE.RingGeometry(p.radiusWorld * p.ringInnerScale, p.radiusWorld * p.ringOuterScale, 64);
         const ringMat = new THREE.MeshBasicMaterial({ color: 0xd4a373, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.rotation.x = Math.PI / 2;
         group.add(ring);
       }
 
-      // Bulan-bulan (prosedural)
-      for (let m = 0; m < p.moons; m++) {
-        const moonDist = p.radiusWorld + 1.4 + m * 0.9;
-        const moonGroup = new THREE.Group();
-        const moonMesh = app.createLODPlanet(EARTH_RADIUS_WORLD * 0.273, createTexture(drawMoon, 256, 256), 0xd9d2c5);
-        moonGroup.position.set(moonDist, 0, 0);
-        moonGroup.add(moonMesh);
-        group.add(moonGroup);
-        app.celestialNodes.push(moonMesh);
-        moonMesh.userData = { dist: moonDist, speed: Math.random() * 0.015 + 0.01, angle: Math.random() * Math.PI * 2, group: moonGroup };
-      }
+      addSolarMoons(group, p);
 
       // Earth: awan
       if (p.name === 'Earth') {
-        const cloudMesh = app.createPlanet(p.radiusWorld * 1.06, createTexture(drawClouds, 512, 512), 64);
+        const cloudMesh = app.createPlanet(p.radiusWorld * p.cloudScale, createTexture(drawClouds, 512, 512), 64);
         cloudMesh.material = new THREE.MeshBasicMaterial({
           map: cloudMesh.material.map,
           transparent: true,
@@ -607,8 +701,8 @@ app.createSolarSystem = function () {
       app.orbits.push({
         name: p.name,
         radius: p.radius,
-        speed: p.speed,
-        angle: Math.random() * Math.PI * 2,
+        elements: p.elements,
+        initialRotation: planetModel.rotation.clone(),
         group: group,
         mesh: planetModel
       });
@@ -632,31 +726,21 @@ app.createSolarSystem = function () {
         map = createTexture((c, w, h) => drawGas(c, w, h, '#1e3a8a', '#1e40af'));
       }
 
-      const mesh = app.createLODPlanet(p.radiusWorld, map, planetGlowColors[p.name]);
-      if (p.atmosphere) app.addAtmosphere(mesh, p.atmosphere);
+      const mesh = app.createLODPlanet(p.radiusWorld, map, planetGlowColors[p.name], false);
       group.add(mesh);
 
       if (p.rings) {
-        const ringGeo = new THREE.RingGeometry(p.radiusWorld * 1.35, p.radiusWorld * 2.1, 64);
+        const ringGeo = new THREE.RingGeometry(p.radiusWorld * p.ringInnerScale, p.radiusWorld * p.ringOuterScale, 64);
         const ringMat = new THREE.MeshBasicMaterial({ color: 0xd4a373, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.rotation.x = Math.PI / 2;
         group.add(ring);
       }
 
-      for (let m = 0; m < p.moons; m++) {
-        const moonDist = p.radiusWorld + 1.4 + m * 0.9;
-        const moonGroup = new THREE.Group();
-        const moonMesh = app.createLODPlanet(EARTH_RADIUS_WORLD * 0.273, createTexture(drawMoon, 256, 256), 0xd9d2c5);
-        moonGroup.position.set(moonDist, 0, 0);
-        moonGroup.add(moonMesh);
-        group.add(moonGroup);
-        app.celestialNodes.push(moonMesh);
-        moonMesh.userData = { dist: moonDist, speed: Math.random() * 0.015 + 0.01, angle: Math.random() * Math.PI * 2, group: moonGroup };
-      }
+      addSolarMoons(group, p);
 
       if (p.name === 'Earth') {
-        const cloudMesh = app.createPlanet(p.radiusWorld * 1.06, createTexture(drawClouds, 512, 512), 64);
+        const cloudMesh = app.createPlanet(p.radiusWorld * p.cloudScale, createTexture(drawClouds, 512, 512), 64);
         cloudMesh.material = new THREE.MeshBasicMaterial({
           map: cloudMesh.material.map,
           transparent: true,
@@ -669,14 +753,16 @@ app.createSolarSystem = function () {
         group.userData = { cloudMesh };
       }
 
+      if (p.atmosphere) app.addAtmosphere(mesh, p.atmosphere, p.atmosphereScale);
+
       app.scene.add(group);
       app.celestialNodes.push(group);
 
       app.orbits.push({
         name: p.name,
         radius: p.radius,
-        speed: p.speed,
-        angle: Math.random() * Math.PI * 2,
+        elements: p.elements,
+        initialRotation: mesh.rotation.clone(),
         group: group,
         mesh: mesh
       });
@@ -1400,8 +1486,12 @@ app.createProceduralSpaceships = function () {
 };
 
 app.setupInput = function () {
-  window.addEventListener('keydown', (e) => { app.keys[e.code] = true; });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') e.preventDefault();
+    app.keys[e.code] = true;
+  });
   window.addEventListener('keyup', (e) => { app.keys[e.code] = false; });
+  window.addEventListener('blur', () => { app.keys = {}; });
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyH') app.toggleUI();
   });

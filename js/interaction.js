@@ -111,11 +111,11 @@ app.warpToCurrentTarget = function (customDuration = null) {
   app.warpTarget.getWorldPosition(targetPos);
   const currentDist = app.camera.position.distanceTo(targetPos);
 
-  // Distance validation: reject if too close (< 8 units) or too far (> max range)
-  const MIN_WARP_DIST = 8;
+  const targetRadius = app.solarBodyRadii[app.warpTarget.name] || 0;
+  const minWarpDistance = targetRadius ? Math.max(targetRadius * 1.1, 0.001) : 8;
   const MAX_WARP_DIST = 200000;
-  if (currentDist < MIN_WARP_DIST) {
-    app.showToast('WARP BLOCKED: Target terlalu dekat (min ' + MIN_WARP_DIST + ' unit)');
+  if (currentDist < minWarpDistance) {
+    app.showToast('WARP BLOCKED: Target terlalu dekat');
     return;
   }
   if (currentDist > MAX_WARP_DIST) {
@@ -245,7 +245,11 @@ app.warpToCurrentTarget = function (customDuration = null) {
     if (cameraOffset.lengthSq() === 0) {
       cameraOffset.set(22, 18, 36);
     }
-    cameraOffset.setLength(Math.max(50, Math.min(cameraOffset.length(), 90)));
+    if (targetRadius) {
+      cameraOffset.setLength(targetRadius * 4.5);
+    } else {
+      cameraOffset.setLength(Math.max(50, Math.min(cameraOffset.length(), 90)));
+    }
 
     let duration = customDuration;
     if (!duration) {

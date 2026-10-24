@@ -3,11 +3,42 @@ const cockpitViewTransforms = {
   heavy: { scale: 2, rotationY: Math.PI, position: [0, 0, 0] },
   ufo: { scale: 2, rotationY: Math.PI, position: [0, 0, 0] },
 };
+const wibTimeFormatter = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+const wibDateFormatter = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  weekday: 'short',
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
 
 app.animate = function () {
   requestAnimationFrame(app.animate);
   const delta = app.clock.getDelta();
   const elapsedTime = app.clock.elapsedTime;
+  const realTimeMilliseconds = typeof performance.timeOrigin === 'number'
+    ? performance.timeOrigin + performance.now()
+    : Date.now();
+  const julianDate = realTimeMilliseconds / 86400000 + 2440587.5;
+  const daysSinceJ2000 = julianDate - 2451545;
+  const currentSecond = Math.floor(realTimeMilliseconds / 1000);
+
+  if (app.lastClockSecond !== currentSecond) {
+    const now = new Date(realTimeMilliseconds);
+    const clockTime = document.getElementById('hud-clock-time');
+    const clockDate = document.getElementById('hud-clock-date');
+    if (clockTime && clockDate) {
+      clockTime.innerText = wibTimeFormatter.format(now) + ' WIB';
+      clockDate.innerText = wibDateFormatter.format(now);
+    }
+    app.lastClockSecond = currentSecond;
+  }
 
   // FPS monitoring for dynamic quality adjustment
   app.fpsFrames++;
@@ -109,14 +140,34 @@ app.animate = function () {
   }
 
   app.orbits.forEach((o) => {
-    o.angle += o.speed * 0.4;
-    o.group.position.x = Math.cos(o.angle) * o.radius;
-    o.group.position.z = Math.sin(o.angle) * o.radius;
-    o.group.rotation.y += 0.006;
+    app.getKeplerPosition(o.elements, o.radius, julianDate, o.group.position);
+    if (o.elements.rotationPeriodDays && o.mesh) {
+      const rotation = THREE.MathUtils.euclideanModulo(
+        (daysSinceJ2000 / o.elements.rotationPeriodDays) * Math.PI * 2,
+        Math.PI * 2
+      );
+      const axialTilt = THREE.MathUtils.degToRad(o.elements.axialTilt || 0);
+      o.mesh.rotation.y = o.initialRotation.y + rotation;
+      o.group.rotation.z = axialTilt;
+      if (o.group.userData && o.group.userData.cloudMesh) {
+        o.group.userData.cloudMesh.rotation.y = rotation;
+      }
+    }
     if (o.group.userData && o.group.userData.cloudMesh) {
-      o.group.userData.cloudMesh.rotation.y = elapsedTime * 0.06;
       o.group.userData.cloudMesh.rotation.x = Math.sin(elapsedTime * 0.2) * 0.03;
     }
+  });
+
+  app.moons.forEach((moon) => {
+    const angle = THREE.MathUtils.euclideanModulo(
+      (daysSinceJ2000 / moon.periodDays) * Math.PI * 2,
+      Math.PI * 2
+    );
+    moon.group.position.set(
+      Math.cos(angle) * moon.radius,
+      0,
+      Math.sin(angle) * moon.radius
+    );
   });
 
   // Throttle celestial animations on low-quality devices
@@ -129,13 +180,13 @@ app.animate = function () {
         node.userData.group.position.z = Math.sin(node.userData.angle) * node.userData.dist;
         node.userData.group.rotation.y += 0.008;
       }
-      if (node.name === 'Sun') {
-        node.rotation.y += 0.003;
-      }
-      if (['Jupiter', 'Saturn', 'Uranus', 'Neptune'].includes(node.name)) {
-        node.rotation.y += 0.005;
-      }
     });
+  }
+  if (app.sunMesh) {
+    app.sunMesh.rotation.y = THREE.MathUtils.euclideanModulo(
+      (daysSinceJ2000 / 25.05) * Math.PI * 2,
+      Math.PI * 2
+    );
   }
 
   if (app.autonomousUFO && app.ufoState) {
@@ -165,7 +216,14 @@ app.animate = function () {
       ).normalize();
     }
 
-    state.desiredVelocity.copy(state.wanderDirection).multiplyScalar(state.speed);
+    state.desiredVelocity.copy(state.wanderDirection);
+    if (app.combat.hostile && app.combat.ufoRespawnTimer <= 0) {
+      state.toPlayer.subVectors(app.camera.position, ufo.position);
+      if (state.toPlayer.lengthSq() > 0.001) {
+        state.desiredVelocity.lerp(state.toPlayer.normalize(), 0.72).normalize();
+      }
+    }
+    state.desiredVelocity.multiplyScalar(state.speed * (app.combat.hostile ? 1.25 : 1));
     state.velocity.lerp(state.desiredVelocity, 1 - Math.exp(-0.8 * delta));
     ufo.position.addScaledVector(state.velocity, delta);
 
@@ -210,7 +268,7 @@ app.animate = function () {
   // WASD movement — kecepatan bervariasi menurut tipe spaceship
   const moveSpeed = app.shipSpeedMap ? app.shipSpeedMap[app.currentShipType] || 30 : 30;
 
-  if (moveVec.lengthSq() > 0) {
+  if (moveVec.lengthSq() > 0 && (!app.combat || app.combat.playerRespawnTimer <= 0)) {
     moveVec.normalize().multiplyScalar(moveSpeed * delta);
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(app.camera.quaternion);
@@ -312,7 +370,10 @@ app.animate = function () {
     const targetWorldPos = new THREE.Vector3();
     app.activeTarget.getWorldPosition(targetWorldPos);
     const dist = app.camera.position.distanceTo(targetWorldPos);
-    document.getElementById('hud-distance').innerText = Math.round(dist * 10) + ' AU';
+    const distanceAU = dist / WORLD_UNITS_PER_AU;
+    document.getElementById('hud-distance').innerText = distanceAU < 0.1
+      ? Math.round(dist * KM_PER_WORLD_UNIT).toLocaleString('id-ID') + ' km'
+      : distanceAU.toFixed(1) + ' AU';
   }
 
   if (app.currentViewMode === '1st') {
@@ -326,6 +387,10 @@ app.animate = function () {
 
   app.distanceLODNodes.forEach((entry) => {
     const { node, radius, detailDistance, sprite } = entry;
+    if (node === app.autonomousUFO && app.combat.ufoRespawnTimer > 0) {
+      node.visible = false;
+      return;
+    }
     node.getWorldPosition(app._lodCenter);
     const inFrustum = app.frustum.intersectsSphere(app._lodSphere.set(app._lodCenter, radius));
     node.visible = inFrustum;
@@ -338,5 +403,282 @@ app.animate = function () {
     sprite.visible = useSprite;
   });
 
+  app.updateCombat(delta);
   app.renderer.render(app.scene, app.camera);
+};
+
+app.createCombatExplosion = function (position, color) {
+  const group = new THREE.Group();
+  group.position.copy(position);
+
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 16, 12),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  group.add(flash);
+
+  const particleCount = 36;
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+  for (let i = 0; i < particleCount; i++) {
+    const direction = new THREE.Vector3(
+      Math.random() * 2 - 1,
+      Math.random() * 2 - 1,
+      Math.random() * 2 - 1
+    ).normalize();
+    velocities[i * 3] = direction.x * (30 + Math.random() * 70);
+    velocities[i * 3 + 1] = direction.y * (30 + Math.random() * 70);
+    velocities[i * 3 + 2] = direction.z * (30 + Math.random() * 70);
+  }
+
+  const particleGeometry = new THREE.BufferGeometry();
+  particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const particles = new THREE.Points(
+    particleGeometry,
+    new THREE.PointsMaterial({
+      color,
+      size: 3,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  group.add(particles);
+  app.scene.add(group);
+  app.combat.effects.push({ object: group, flash, particles, velocities, life: 0.8, duration: 0.8 });
+};
+
+app.firePlayerLaser = function () {
+  const combat = app.combat;
+  if (
+    combat.playerRespawnTimer > 0
+    || combat.ufoRespawnTimer > 0
+    || app.isWarping
+    || app.isAligning
+    || app.isCountdown
+  ) return;
+
+  combat.playerShotCooldown = 0.24;
+  app.camera.updateMatrixWorld();
+  const direction = app.camera.getWorldDirection(new THREE.Vector3());
+  const cameraOrigin = app.camera.getWorldPosition(new THREE.Vector3());
+  let origin = cameraOrigin.clone();
+
+  if (app.currentViewMode === '3rd' && app.activeShipGroup && app.activeShipGroup.visible) {
+    app.activeShipGroup.updateMatrixWorld(true);
+    const shipBounds = new THREE.Box3().setFromObject(app.activeShipGroup);
+    if (!shipBounds.isEmpty()) {
+      const shipCenter = shipBounds.getCenter(new THREE.Vector3());
+      const halfSize = shipBounds.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+      const noseOffset = Math.abs(direction.x) * halfSize.x
+        + Math.abs(direction.y) * halfSize.y
+        + Math.abs(direction.z) * halfSize.z;
+      origin = shipCenter.addScaledVector(direction, noseOffset);
+    }
+  } else {
+    origin.addScaledVector(direction, 5);
+  }
+
+  const aimPoint = cameraOrigin.addScaledVector(direction, 2500);
+  const shotDirection = aimPoint.sub(origin).normalize();
+  const targetOffset = app.autonomousUFO
+    ? app.autonomousUFO.getWorldPosition(new THREE.Vector3()).sub(origin)
+    : new THREE.Vector3();
+  const targetDepth = targetOffset.dot(shotDirection);
+  const targetMiss = targetOffset.addScaledVector(shotDirection, -targetDepth).length();
+  const hit = app.autonomousUFO
+    && app.autonomousUFO.visible
+    && targetDepth > 0
+    && targetDepth < 2500
+    && targetMiss < 10;
+  const end = hit
+    ? origin.clone().addScaledVector(shotDirection, targetDepth)
+    : origin.clone().addScaledVector(shotDirection, 500);
+  const beam = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([origin, end]),
+    new THREE.LineBasicMaterial({
+      color: 0x67e8f9,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  app.scene.add(beam);
+  combat.effects.push({ object: beam, life: 0.12, duration: 0.12 });
+
+  if (hit) {
+    combat.hostile = true;
+    combat.ufoHealth = Math.max(0, combat.ufoHealth - 34);
+    if (combat.ufoHealth === 0) {
+      app.createCombatExplosion(app.autonomousUFO.position, 0x67e8f9);
+      app.autonomousUFO.visible = false;
+      combat.hostile = false;
+      combat.ufoRespawnTimer = 2.2;
+      for (let i = combat.projectiles.length - 1; i >= 0; i--) {
+        const projectile = combat.projectiles[i];
+        if (projectile.owner !== 'ufo') continue;
+        app.scene.remove(projectile.object);
+        projectile.object.geometry.dispose();
+        projectile.object.material.dispose();
+        combat.projectiles.splice(i, 1);
+      }
+      app.showToast('UFO DESTROYED — TARGET RESPAWNING');
+    } else {
+      app.showToast('UFO HIT — IT IS HOSTILE');
+    }
+  }
+};
+
+app.fireUFOProjectile = function () {
+  const start = app.autonomousUFO.position.clone();
+  const target = app.camera.getWorldPosition(new THREE.Vector3());
+  const direction = target.sub(start).normalize();
+  const projectile = new THREE.Mesh(
+    new THREE.SphereGeometry(1.5, 10, 8),
+    new THREE.MeshBasicMaterial({
+      color: 0xfb7185,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  projectile.position.copy(start);
+  app.scene.add(projectile);
+  app.combat.projectiles.push({
+    object: projectile,
+    direction,
+    speed: 190,
+    life: 12,
+    owner: 'ufo',
+  });
+};
+
+app.updateCombat = function (delta) {
+  const combat = app.combat;
+  combat.playerShotCooldown = Math.max(0, combat.playerShotCooldown - delta);
+  combat.enemyShotCooldown = Math.max(0, combat.enemyShotCooldown - delta);
+
+  if (combat.playerRespawnTimer > 0) {
+    combat.playerRespawnTimer -= delta;
+    if (combat.playerRespawnTimer <= 0) {
+      combat.playerHealth = combat.playerMaxHealth;
+      combat.playerRespawnTimer = 0;
+      app.camera.position.copy(app.playerSpawnPosition);
+      app.controls.target.copy(app.playerSpawnTarget);
+      app.camera.lookAt(app.playerSpawnTarget);
+      app.followTarget = null;
+      app.showToast('SHIP REPAIRED — RESPAWNED AT SECTOR 07-X');
+    }
+  }
+
+  if (combat.ufoRespawnTimer > 0) {
+    combat.ufoRespawnTimer -= delta;
+    if (combat.ufoRespawnTimer <= 0) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 160 + Math.random() * 340;
+      app.autonomousUFO.position.set(
+        app.ufoState.homePosition.x + Math.cos(angle) * radius,
+        app.ufoState.homePosition.y + (Math.random() - 0.5) * 180,
+        app.ufoState.homePosition.z + Math.sin(angle) * radius
+      );
+      app.ufoState.homePosition.copy(app.autonomousUFO.position);
+      app.ufoState.velocity.set(12, 0, 6);
+      app.ufoState.wanderTimer = 0;
+      app.autonomousUFO.visible = true;
+      combat.ufoHealth = combat.ufoMaxHealth;
+      combat.ufoRespawnTimer = 0;
+      app.showToast('NEW UFO CONTACT — NEUTRAL');
+    }
+  }
+
+  if (app.keys['Space'] && combat.playerShotCooldown <= 0) {
+    app.firePlayerLaser();
+  }
+
+  if (combat.hostile && combat.ufoRespawnTimer <= 0 && combat.playerRespawnTimer <= 0) {
+    if (combat.enemyShotCooldown <= 0) {
+      app.fireUFOProjectile();
+      combat.enemyShotCooldown = 1.35;
+    }
+  }
+
+  for (let i = combat.projectiles.length - 1; i >= 0; i--) {
+    const projectile = combat.projectiles[i];
+    projectile.life -= delta;
+    projectile.object.position.addScaledVector(projectile.direction, projectile.speed * delta);
+
+    const hitPlayer = projectile.owner === 'ufo'
+      && combat.playerRespawnTimer <= 0
+      && projectile.object.position.distanceTo(app.camera.position) < 12;
+    if (hitPlayer) {
+      combat.playerHealth = Math.max(0, combat.playerHealth - 20);
+      app.createCombatExplosion(projectile.object.position, 0xfb7185);
+      if (combat.playerHealth === 0) {
+        app.createCombatExplosion(app.camera.position, 0xf97316);
+        combat.playerRespawnTimer = 2;
+        app.showToast('SHIP DESTROYED — EMERGENCY RESPAWN');
+      }
+      projectile.life = 0;
+    }
+
+    if (projectile.life <= 0) {
+      app.scene.remove(projectile.object);
+      projectile.object.geometry.dispose();
+      projectile.object.material.dispose();
+      combat.projectiles.splice(i, 1);
+    }
+  }
+
+  for (let i = combat.effects.length - 1; i >= 0; i--) {
+    const effect = combat.effects[i];
+    effect.life -= delta;
+    const progress = 1 - Math.max(0, effect.life) / effect.duration;
+    if (effect.flash) {
+      effect.flash.scale.setScalar(2 + progress * 22);
+      effect.flash.material.opacity = 0.9 * (1 - progress);
+      const positions = effect.particles.geometry.attributes.position.array;
+      for (let p = 0; p < effect.velocities.length / 3; p++) {
+        positions[p * 3] += effect.velocities[p * 3] * delta;
+        positions[p * 3 + 1] += effect.velocities[p * 3 + 1] * delta;
+        positions[p * 3 + 2] += effect.velocities[p * 3 + 2] * delta;
+      }
+      effect.particles.geometry.attributes.position.needsUpdate = true;
+      effect.particles.material.opacity = 1 - progress;
+    } else {
+      effect.object.material.opacity = 1 - progress;
+    }
+    if (effect.life <= 0) {
+      app.scene.remove(effect.object);
+      effect.object.traverse((object) => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) object.material.dispose();
+      });
+      combat.effects.splice(i, 1);
+    }
+  }
+
+  const playerHealthFill = document.getElementById('player-health-fill');
+  const playerHealthLabel = document.getElementById('player-health-label');
+  const ufoHealthFill = document.getElementById('ufo-health-fill');
+  const ufoHealthLabel = document.getElementById('ufo-health-label');
+  const combatStatus = document.getElementById('combat-status');
+  if (playerHealthFill) playerHealthFill.style.width = (combat.playerHealth / combat.playerMaxHealth * 100) + '%';
+  if (playerHealthLabel) playerHealthLabel.innerText = combat.playerRespawnTimer > 0
+    ? 'RESPAWNING...'
+    : Math.ceil(combat.playerHealth) + ' / ' + combat.playerMaxHealth;
+  if (ufoHealthFill) ufoHealthFill.style.width = (combat.ufoHealth / combat.ufoMaxHealth * 100) + '%';
+  if (ufoHealthLabel) ufoHealthLabel.innerText = combat.ufoRespawnTimer > 0
+    ? 'RESPAWNING...'
+    : combat.hostile
+      ? Math.ceil(combat.ufoHealth) + ' / ' + combat.ufoMaxHealth
+      : 'NEUTRAL';
+  if (combatStatus) combatStatus.innerText = combat.hostile ? 'HOSTILE CONTACT' : 'SPACE: FIRE LASER';
 };

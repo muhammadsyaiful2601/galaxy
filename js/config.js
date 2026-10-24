@@ -261,16 +261,64 @@ const CELESTIAL_DATA = {
   }
 };
 
-// Planet radii are scaled to Earth; orbital distances remain compressed for navigation.
-const EARTH_RADIUS_WORLD = 1.8;
+// Solar-system objects use a consistent physical scale: 100 world units = 1 AU.
+const AU_KM = 149597870.7;
+const WORLD_UNITS_PER_AU = 100;
+const KM_PER_WORLD_UNIT = AU_KM / WORLD_UNITS_PER_AU;
 const ORBIT_CONFIG = [
-  { name: 'Mercury', radius: 39, speed: 0.040, radiusWorld: EARTH_RADIUS_WORLD * 0.383, moons: 0 },
-  { name: 'Venus',   radius: 72, speed: 0.030, radiusWorld: EARTH_RADIUS_WORLD * 0.95, moons: 0 },
-  { name: 'Earth',   radius: 100, speed: 0.020, radiusWorld: EARTH_RADIUS_WORLD, moons: 1, atmosphere: 0x3b82f6 },
-  { name: 'Mars',    radius: 152, speed: 0.016, radiusWorld: EARTH_RADIUS_WORLD * 0.532, moons: 2 },
-  { name: 'Jupiter', radius: 520, speed: 0.008, radiusWorld: EARTH_RADIUS_WORLD * 11.21, moons: 4 },
-  { name: 'Saturn',  radius: 958, speed: 0.006, radiusWorld: EARTH_RADIUS_WORLD * 9.45, moons: 3, rings: true },
-  { name: 'Uranus',  radius: 1920, speed: 0.004, radiusWorld: EARTH_RADIUS_WORLD * 4.01, moons: 0, atmosphere: 0x9cd7f0 },
-  { name: 'Neptune', radius: 3010, speed: 0.003, radiusWorld: EARTH_RADIUS_WORLD * 3.88, moons: 0, atmosphere: 0x3b82f6 },
-  { name: 'Kepler-186f', radius: 3600, speed: 0.0025, radiusWorld: EARTH_RADIUS_WORLD * 1.17, moons: 0, atmosphere: 0x4a9e7a }
+  {
+    name: 'Mercury', radius: 0.387098 * WORLD_UNITS_PER_AU, radiusWorld: 2439.7 / KM_PER_WORLD_UNIT, moons: 0,
+    elements: { periodDays: 87.9691, meanAnomaly: 174.7925, eccentricity: 0.205636, eccentricityRate: 0.001807, inclination: 7.005, inclinationRate: -0.005947, ascendingNode: 48.331, ascendingNodeRate: -0.125341, argumentPerihelion: 29.127, argumentPerihelionRate: 0.285818, rotationPeriodDays: 58.646, axialTilt: 0.034 }
+  },
+  {
+    name: 'Venus', radius: 0.723332 * WORLD_UNITS_PER_AU, radiusWorld: 6051.8 / KM_PER_WORLD_UNIT, moons: 0, atmosphereScale: 1.0165,
+    elements: { periodDays: 224.701, meanAnomaly: 50.3766, eccentricity: 0.006777, eccentricityRate: -0.004107, inclination: 3.395, inclinationRate: -0.000789, ascendingNode: 76.68, ascendingNodeRate: -0.277694, argumentPerihelion: 54.923, argumentPerihelionRate: 0.280378, rotationPeriodDays: 243.025, axialTilt: 177.36 }
+  },
+  {
+    name: 'Earth', radius: WORLD_UNITS_PER_AU, radiusWorld: 6371 / KM_PER_WORLD_UNIT, moons: 1, atmosphere: 0x3b82f6, atmosphereScale: 1.0157, cloudScale: 1.0016,
+    elements: { periodDays: 365.256, meanAnomaly: 357.5269, eccentricity: 0.016711, eccentricityRate: -0.004392, inclination: 0.000015, inclinationRate: -0.012947, ascendingNode: 0, ascendingNodeRate: 0, argumentPerihelion: 102.938, argumentPerihelionRate: 0.323274, rotationPeriodDays: 0.99727, axialTilt: 23.44 }
+  },
+  {
+    name: 'Mars', radius: 1.523679 * WORLD_UNITS_PER_AU, radiusWorld: 3389.5 / KM_PER_WORLD_UNIT, moons: 2, atmosphere: 0xff7658, atmosphereScale: 1.0325,
+    elements: { periodDays: 686.98, meanAnomaly: 19.3902, eccentricity: 0.093394, eccentricityRate: 0.007882, inclination: 1.85, inclinationRate: -0.008131, ascendingNode: 49.56, ascendingNodeRate: -0.292573, argumentPerihelion: 286.503, argumentPerihelionRate: 0.736984, rotationPeriodDays: 1.02596, axialTilt: 25.19 }
+  },
+  {
+    name: 'Jupiter', radius: 5.2026 * WORLD_UNITS_PER_AU, radiusWorld: 69911 / KM_PER_WORLD_UNIT, moons: 4, atmosphere: 0xffc98b, atmosphereScale: 1.0143,
+    elements: { periodDays: 4332.59, meanAnomaly: 19.66796, eccentricity: 0.048386, eccentricityRate: -0.013253, inclination: 1.304, inclinationRate: -0.001837, ascendingNode: 100.474, ascendingNodeRate: 0.204691, argumentPerihelion: 14.255, argumentPerihelionRate: 0.007836, rotationPeriodDays: 0.41354, axialTilt: 3.13 }
+  },
+  {
+    name: 'Saturn', radius: 9.5549 * WORLD_UNITS_PER_AU, radiusWorld: 58232 / KM_PER_WORLD_UNIT, moons: 3, rings: true, ringInnerScale: 66900 / 58232, ringOuterScale: 136780 / 58232,
+    elements: { periodDays: 10759.22, meanAnomaly: 317.35537, eccentricity: 0.053862, eccentricityRate: -0.050991, inclination: 2.486, inclinationRate: 0.001936, ascendingNode: 113.662, ascendingNodeRate: -0.288678, argumentPerihelion: 338.936, argumentPerihelionRate: -0.130294, rotationPeriodDays: 0.44401, axialTilt: 26.73 }
+  },
+  {
+    name: 'Uranus', radius: 19.2184 * WORLD_UNITS_PER_AU, radiusWorld: 25362 / KM_PER_WORLD_UNIT, moons: 0, atmosphere: 0x9cd7f0, atmosphereScale: 1.0394,
+    elements: { periodDays: 30688.5, meanAnomaly: 142.2838, eccentricity: 0.047257, eccentricityRate: -0.004397, inclination: 0.773, inclinationRate: -0.002429, ascendingNode: 74.017, ascendingNodeRate: 0.042406, argumentPerihelion: 96.938, argumentPerihelionRate: 0.365647, rotationPeriodDays: 0.71833, axialTilt: 97.77 }
+  },
+  {
+    name: 'Neptune', radius: 30.1104 * WORLD_UNITS_PER_AU, radiusWorld: 24622 / KM_PER_WORLD_UNIT, moons: 0, atmosphere: 0x3b82f6, atmosphereScale: 1.0406,
+    elements: { periodDays: 60182, meanAnomaly: 259.9152, eccentricity: 0.00859, eccentricityRate: 0.005105, inclination: 1.77, inclinationRate: 0.000354, ascendingNode: 131.784, ascendingNodeRate: -0.005087, argumentPerihelion: 273.187, argumentPerihelionRate: -0.317328, rotationPeriodDays: 0.67125, axialTilt: 28.32 }
+  },
+  {
+    name: 'Kepler-186f', radius: 3600, radiusWorld: 2.106, moons: 0, atmosphere: 0x4a9e7a,
+    elements: { periodDays: 129.9, meanAnomaly: 0, eccentricity: 0, inclination: 0, ascendingNode: 0, argumentPerihelion: 0, rotationPeriodDays: 129.9, axialTilt: 0, illustrative: true }
+  }
 ];
+
+const SOLAR_MOON_CONFIG = {
+  Earth: [{ name: 'Moon', radiusKm: 1737.4, orbitRadiusKm: 384400, periodDays: 27.321661 }],
+  Mars: [
+    { name: 'Phobos', radiusKm: 11.1, orbitRadiusKm: 9376, periodDays: 0.31891 },
+    { name: 'Deimos', radiusKm: 6.2, orbitRadiusKm: 23463, periodDays: 1.26244 }
+  ],
+  Jupiter: [
+    { name: 'Io', radiusKm: 1821.6, orbitRadiusKm: 421700, periodDays: 1.769138 },
+    { name: 'Europa', radiusKm: 1560.8, orbitRadiusKm: 671034, periodDays: 3.551181 },
+    { name: 'Ganymede', radiusKm: 2634.1, orbitRadiusKm: 1070412, periodDays: 7.154553 },
+    { name: 'Callisto', radiusKm: 2410.3, orbitRadiusKm: 1882709, periodDays: 16.689018 }
+  ],
+  Saturn: [
+    { name: 'Rhea', radiusKm: 763.8, orbitRadiusKm: 527108, periodDays: 4.518212 },
+    { name: 'Titan', radiusKm: 2574.7, orbitRadiusKm: 1221870, periodDays: 15.945421 },
+    { name: 'Iapetus', radiusKm: 734.5, orbitRadiusKm: 3560820, periodDays: 79.3215 }
+  ]
+};

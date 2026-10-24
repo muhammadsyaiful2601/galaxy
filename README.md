@@ -7,11 +7,14 @@ Simulasi ruang angkasa 3D interaktif dengan sistem planet, glitch warp drive, da
 ## Fitur Utama
 
 - 🪐 **Sistem Tata Surya** — 8 planet (Mercury–Neptune) dengan model GLB 3D, orbit, dan rotasi
+- 🕰️ **Orbit realtime berskala fisik** — Ukuran Matahari, planet, bulan, cincin Saturnus, serta jarak orbit memakai satu skala konsisten: 100 unit dunia = 1 AU. Posisi dihitung dari elemen Keplerian J2000 dan waktu UTC aktual; rotasi planet dan periode bulan mengikuti nilai sidereal. Kepler-186f tetap ilustratif karena berada di luar Tata Surya dan bintang induknya tidak dimodelkan.
+- 🗓️ **Kalender & jam WIB** — Tanggal dan waktu realtime ditampilkan dalam zona `Asia/Jakarta` (WIB); rotasi memakai waktu presisi tinggi agar gerakannya tetap halus.
 - 🕳️ **Sagittarius A\*** — Lubang hitam supermacia dengan model GLB 31.3 MB, akresi disk, glow, dan distorti procedural
 - ☀️ **Matahari** — Model GLB 3D dengan efek cahaya
 - 🚀 **Spaceship 3 tipe** — Recon (cepat), Heavy (lambat/tahan lumpur), UFO (sedang/alien)
 - 🌌 **Warp Drive** — Terowongan perspektif 3D dengan ring dan streak yang melesat, efek percepatan FOV, dan HUD kecepatan yang mengikuti fase warp
 - 🎮 **Kontrol WASD** — Gerak kamera/spaceship dengan kecepatan bervariasi menurut tipe kapal
+- ⚔️ **Pertempuran UFO** — Tekan `Space` untuk laser; UFO netral sampai diserang, lalu membalas. Kapal dan UFO memiliki health, ledakan, dan respawn
 - 📊 **HUD** — Informasi target, jarak, dan kecepatan warp
 - 🎵 **Audio** — Efek suara klik, warp, dan perpindahan spaceship
 
@@ -86,6 +89,7 @@ antariksa/
 | Mundur | `S` |
 | Kiri | `A` |
 | Kanan | `D` |
+| Tembak laser | Tahan `Space` |
 | Pilih target | Klik objek di layar |
 | Warp ke target | Tombol **Engage Warp** atau pilih dari daftar Quick Warp |
 | Batalkan warp | Tombol **Cancel Warp** saat overlay aktif |
@@ -113,6 +117,10 @@ Saat meneklam **Engage Warp**:
 4. HUD menampilkan kecepatan super: `999+ LY/s` dengan warna amber dan efek pulse
 5. Kamera melompat dari posisi awal ke target dengan easing GSAP (`power3.inOut`)
 6. Setelah tiba, kamera otomatis follow target
+
+## Skala Tata Surya
+
+Ukuran Matahari, delapan planet, bulan utama yang ditampilkan, cincin Saturnus, dan jarak orbit Tata Surya menggunakan rasio fisik 1:1. Konversi scene-nya adalah 100 unit dunia per AU (1 unit dunia = 1.495.978,707 km). Karena rasio ukuran planet terhadap jarak orbit memang sangat kecil, planet akan tampak kecil dari jarak antariksa; gunakan zoom kamera untuk melihat permukaannya. Kapal pemain, UFO, objek fiksi, latar galaksi, dan Kepler-186f tidak termasuk skala Tata Surya ini.
 
 ## Model 3D (GLB)
 
