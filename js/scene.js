@@ -31,6 +31,30 @@ app.shipSpeedMap = {
   heavy: 20,   // lambat, tahan lumpur
   ufo: 32      // sedang, teknologi alien
 };
+
+// State tampilan UI (hide/show)
+app.uiHidden = false;
+
+app.toggleUI = function () {
+  app.uiHidden = !app.uiHidden;
+  const panels = document.querySelectorAll('.ui-panel');
+  const icon = document.getElementById('ui-toggle-icon');
+  const btn = document.getElementById('btn-toggle-ui');
+
+  if (app.uiHidden) {
+    panels.forEach((p) => { p.style.display = 'none'; });
+    if (icon) icon.className = 'fa-solid fa-eye';
+    if (btn) btn.title = 'Tampilkan UI';
+  } else {
+    panels.forEach((p) => { p.style.display = ''; });
+    if (icon) icon.className = 'fa-solid fa-eye-slash';
+    if (btn) btn.title = 'Sembunyikan UI';
+  }
+};
+
+// Expose to window for inline HTML onclick
+window.toggleUI = app.toggleUI;
+
 app.followTargetPosition = new THREE.Vector3();
 app._targetMovement = new THREE.Vector3();
 app.distanceLODNodes = [];
@@ -1253,4 +1277,7 @@ app.createProceduralSpaceships = function () {
 app.setupInput = function () {
   window.addEventListener('keydown', (e) => { app.keys[e.code] = true; });
   window.addEventListener('keyup', (e) => { app.keys[e.code] = false; });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyH') app.toggleUI();
+  });
 };

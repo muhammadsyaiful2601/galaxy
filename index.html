@@ -38,12 +38,12 @@
   </div>
 
   <!-- Warp progress bar overlay -->
-  <div id="warp-progress-container" class="absolute top-0 left-0 w-full z-30 h-1 bg-slate-900/50 opacity-0 transition-opacity duration-300 pointer-events-none">
+  <div id="warp-progress-container" class="absolute top-0 left-0 w-full z-30 h-1 bg-slate-900/50 opacity-0 transition-opacity duration-300 pointer-events-none ui-panel">
     <div id="warp-progress-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear shadow-[0_0_15px_rgba(6,182,212,0.8)]"></div>
   </div>
 
   <!-- Cancel warp button (appears during active warp) -->
-  <button id="btn-cancel-warp" onclick="cancelWarp()" class="fixed bottom-40 left-1/2 -translate-x-1/2 z-40 hud-panel px-6 py-3 rounded-xl border border-cyan-500/50 bg-slate-900/80 text-cyan-300 font-orbitron font-bold text-sm tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+  <button id="btn-cancel-warp" onclick="cancelWarp()" class="fixed bottom-40 left-1/2 -translate-x-1/2 z-40 hud-panel px-6 py-3 rounded-xl border border-cyan-500/50 bg-slate-900/80 text-cyan-300 font-orbitron font-bold text-sm tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)] ui-panel">
     <i class="fa-solid fa-ban text-xs"></i>
     <span>CANCEL WARP</span>
   </button>
@@ -58,7 +58,13 @@
     </div>
   </div>
 
-  <header class="absolute top-4 left-4 right-4 z-30 flex flex-wrap justify-between items-center gap-4 pointer-events-none px-4">
+  <!-- Toggle UI button (always visible) -->
+  <button id="btn-toggle-ui" onclick="toggleUI()" class="absolute top-4 right-4 z-50 w-10 h-10 rounded bg-slate-800/80 border border-slate-600/50 hover:bg-slate-600 text-slate-200 flex items-center justify-center transition-all backdrop-blur-sm backdrop-filter backdrop-blur-[4px] text-sm">
+    <i id="ui-toggle-icon" class="fa-solid fa-eye-slash"></i>
+    <span class="sr-only pointer-events-none">Toggle UI</span>
+  </button>
+
+  <header class="absolute top-4 left-4 right-4 z-30 flex flex-wrap justify-between items-center gap-4 pointer-events-none px-4 ui-panel">
     <div class="hud-panel px-4 py-2 rounded-xl flex items-center gap-3 pointer-events-auto text-center md:text-left">
       <div class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-300 text-lg shadow-lg">
         <i class="fa-solid font-orbitron fa-shuttle-space"></i>
@@ -100,7 +106,7 @@
   </header>
 
   <!-- LEFT PANELS: SPACECRAFT + CONTROLS with collapse toggle -->
-  <aside class="absolute top-24 left-4 z-30 md:w-80 w-auto max-w-[92vw] flex flex-col gap-3 pointer-events-auto">
+  <aside class="absolute top-24 left-4 z-30 md:w-80 w-auto max-w-[92vw] flex flex-col gap-3 pointer-events-auto ui-panel">
 
     <!-- SPACECRAFT Panel -->
     <div id="panel-spacecraft" class="hud-panel p-3 md:p-4 rounded-2xl panel-collapsible">
@@ -201,7 +207,7 @@
 
   </aside>
 
-  <div id="right-sidebar" class="absolute top-24 right-4 z-30 md:w-80 w-auto max-w-[90vw] max-h-[calc(100vh-7rem)] flex flex-col gap-3 pointer-events-none">
+  <div id="right-sidebar" class="absolute top-24 right-4 z-30 md:w-80 w-auto max-w-[90vw] max-h-[calc(100vh-7rem)] flex flex-col gap-3 pointer-events-none ui-panel">
   <!-- RIGHT PANEL: CELESTIAL BODY with increased secondary font -->
   <aside id="target-card" class="w-full shrink-0 hud-panel p-3 md:p-5 rounded-2xl transition-all pointer-events-auto">
     <div class="flex justify-between items-start mb-2">
@@ -328,13 +334,13 @@
   </aside>
   </div>
 
-  <div id="toast" class="absolute top-20 left-1/2 -translate-x-1/2 z-40 hud-panel px-4 py-2 rounded-full border border-white/20 text-slate-200 text-[10px] font-orbitron tracking-wider opacity-0 transition-opacity pointer-events-none flex items-center gap-1.5">
+  <div id="toast" class="absolute top-20 left-1/2 -translate-x-1/2 z-40 hud-panel px-4 py-2 rounded-full border border-white/20 text-slate-200 text-[10px] font-orbitron tracking-wider opacity-0 transition-opacity pointer-events-none flex items-center gap-1.5 ui-panel">
     <i class="fa-solid fa-circle-info text-slate-300 text-[10px]"></i>
     <span id="toast-text">Target locked.</span>
   </div>
 
   <!-- Planet Fact Popup -->
-  <div id="planet-popup" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hud-panel p-5 md:p-6 rounded-2xl max-w-md w-full mx-4 opacity-0 pointer-events-none transition-opacity duration-300 transform scale-95">
+  <div id="planet-popup" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hud-panel p-5 md:p-6 rounded-2xl max-w-md w-full mx-4 opacity-0 pointer-events-none transition-opacity duration-300 transform scale-95 ui-panel">
     <div class="flex justify-between items-start mb-3">
       <h3 id="popup-title" class="font-orbitron font-bold text-xl text-white tracking-wider">Planet</h3>
       <button onclick="closePlanetPopup()" class="w-8 h-8 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all">
