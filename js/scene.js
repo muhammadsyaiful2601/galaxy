@@ -664,43 +664,83 @@ app.createAutonomousUFO = function () {
     app.autonomousUFO = new THREE.Group();
     app.autonomousUFO.name = 'Autonomous Alien UFO';
     app.autonomousUFO.position.set(50, 25, 70);
-
-    const segs = app.getSegmentCount(48);
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.5, 5.5, 1, segs),
-      new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.95, roughness: 0.05 })
-    );
-    app.autonomousUFO.add(body);
-
-    const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(2.4, segs, Math.floor(segs / 2), 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshPhysicalMaterial({ color: 0x06b6d4, transmission: 0.85, opacity: 1, transparent: true, roughness: 0 })
-    );
-    dome.position.y = 0.4;
-    app.autonomousUFO.add(dome);
-
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(5.6, 0.25, segs, segs), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
-    ring.rotation.x = Math.PI / 2;
-    app.autonomousUFO.add(ring);
-
-    const spotLight = new THREE.SpotLight(0x22c55e, 6, 45, Math.PI / 6, 0.5, 1);
-    spotLight.position.set(0, 0, 0);
-    spotLight.target.position.set(0, -22, 0);
-    app.autonomousUFO.add(spotLight);
-    app.autonomousUFO.add(spotLight.target);
-
-    const coneSegs = app.getSegmentCount(48);
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(9, coneSegs, coneSegs, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
-    );
-    cone.position.y = -14;
-    app.autonomousUFO.add(cone);
-
     app.scene.add(app.autonomousUFO);
-    app.celestialNodes.push(app.autonomousUFO);
-    app.addDistanceLOD(app.autonomousUFO, 25, 0x22c55e, 250);
-};
+
+    const ufoLoader = new THREE.GLTFLoader();
+    ufoLoader.load('asset3D/object/ufo.glb', (gltf) => {
+      const ufoModel = gltf.scene;
+      ufoModel.traverse((child) => {
+        if (child.isMesh) {
+          child.name = 'ufo';
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      // Skalakan dan tengahkan model agar proporsional
+      const bounds = new THREE.Box3().setFromObject(ufoModel);
+      const size = bounds.getSize(new THREE.Vector3());
+      const scale = 8 / Math.max(size.x, size.y, size.z);
+      ufoModel.scale.setScalar(scale);
+      const center = bounds.getCenter(new THREE.Vector3());
+      ufoModel.position.copy(center).multiplyScalar(-scale);
+      app.autonomousUFO.add(ufoModel);
+
+      // Efek cahaya dan sinar prosedural di sekeliling model GLB
+      const spotLight = new THREE.SpotLight(0x22c55e, 6, 45, Math.PI / 6, 0.5, 1);
+      spotLight.position.set(0, 0, 0);
+      spotLight.target.position.set(0, -22, 0);
+      app.autonomousUFO.add(spotLight);
+      app.autonomousUFO.add(spotLight.target);
+
+      const coneSegs = app.getSegmentCount(48);
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(9, coneSegs, coneSegs, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
+      );
+      cone.position.y = -14;
+      app.autonomousUFO.add(cone);
+
+      app.celestialNodes.push(app.autonomousUFO);
+      app.addDistanceLOD(app.autonomousUFO, 25, 0x22c55e, 250);
+    }, undefined, (err) => {
+      console.error('Gagal memuat model ufo.glb dari object:', err);
+      // Fallback ke model procedural jika GLB gagal dimuat
+      const segs = app.getSegmentCount(48);
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(3.5, 5.5, 1, segs),
+        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.95, roughness: 0.05 })
+      );
+      app.autonomousUFO.add(body);
+
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(2.4, segs, Math.floor(segs / 2), 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshPhysicalMaterial({ color: 0x06b6d4, transmission: 0.85, opacity: 1, transparent: true, roughness: 0 })
+      );
+      dome.position.y = 0.4;
+      app.autonomousUFO.add(dome);
+
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(5.6, 0.25, segs, segs), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
+      ring.rotation.x = Math.PI / 2;
+      app.autonomousUFO.add(ring);
+
+      const spotLight = new THREE.SpotLight(0x22c55e, 6, 45, Math.PI / 6, 0.5, 1);
+      spotLight.position.set(0, 0, 0);
+      spotLight.target.position.set(0, -22, 0);
+      app.autonomousUFO.add(spotLight);
+      app.autonomousUFO.add(spotLight.target);
+
+      const coneSegs = app.getSegmentCount(48);
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(9, coneSegs, coneSegs, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
+      );
+      cone.position.y = -14;
+      app.autonomousUFO.add(cone);
+
+      app.celestialNodes.push(app.autonomousUFO);
+      app.addDistanceLOD(app.autonomousUFO, 25, 0x22c55e, 250);
+    });
+  };
 
 app.createAndromeda = function () {
     const andromedaGroup = new THREE.Group();
