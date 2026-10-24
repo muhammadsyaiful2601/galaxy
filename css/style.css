@@ -57,6 +57,32 @@ body {
   background: radial-gradient(circle, transparent 30%, rgba(15, 23, 42, 0.9) 80%, #020205 100%);
 }
 
+#warp-tunnel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 15%, rgba(2, 6, 18, 0.18) 48%, rgba(2, 6, 18, 0.78) 100%);
+}
+
+.warp-ray-field {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(34, 211, 238, 0.2) 0deg 0.35deg,
+    transparent 0.35deg 8deg,
+    rgba(168, 85, 247, 0.16) 8deg 8.3deg,
+    transparent 8.3deg 16deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 0%, transparent 12%, #000 68%);
+  mask-image: radial-gradient(ellipse at center, transparent 0%, transparent 12%, #000 68%);
+  animation: warp-ray-rush 0.75s linear infinite;
+  opacity: 0.55;
+}
+
+@keyframes warp-ray-rush {
+  from { transform: scale(0.8) rotate(0deg); opacity: 0.2; }
+  to { transform: scale(1.8) rotate(6deg); opacity: 0.75; }
+}
+
 .scan-line {
   position: absolute;
   inset: 0;

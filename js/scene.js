@@ -29,20 +29,28 @@ app.currentAlignTween = null;
 app.isCountdown = false;
 app.currentCountdownInterval = null;
 app._lastShipSoundType = null;
+app.warpTunnel = null;
+app.warpTunnelParticles = null;
+app.warpProgress = 0;
+app.warpBaseFov = null;
 app.ufoState = {
-  currentTarget: null,
-  changeTimer: 0,
-  changeInterval: 5,
-  speed: 15,
-  wanderRadius: 250,
-  homePosition: new THREE.Vector3(50, 25, 70)
+  speed: 36,
+  wanderRadius: 480,
+  homePosition: new THREE.Vector3(50, 25, 70),
+  velocity: new THREE.Vector3(12, 0, 6),
+  wanderDirection: new THREE.Vector3(1, 0, 0),
+  desiredVelocity: new THREE.Vector3(),
+  toHome: new THREE.Vector3(),
+  wanderTimer: 0,
+  bobPhase: 0,
+  spin: 0,
 };
 
 // Kecepatan gerak per tipe spaceship (satuan per detik)
 app.shipSpeedMap = {
-  recon: 45,   // cepat, cetak kelincah
-  heavy: 20,   // lambat, tahan lumpur
-  ufo: 32      // sedang, teknologi alien
+  recon: 45,
+  heavy: 9,
+  ufo: 450
 };
 
 // State tampilan UI (hide/show)
@@ -693,13 +701,6 @@ app.createAutonomousUFO = function () {
     app.autonomousUFO.position.set(50, 25, 70);
     app.scene.add(app.autonomousUFO);
 
-    // Inisialisasi target wander awal
-    app.ufoState.currentTarget = new THREE.Vector3(
-      50 + (Math.random() - 0.5) * 200,
-      25 + (Math.random() - 0.5) * 100,
-      70 + (Math.random() - 0.5) * 200
-    );
-
     const ufoLoader = new THREE.GLTFLoader();
     ufoLoader.load('asset3D/object/ufo.glb', (gltf) => {
       const ufoModel = gltf.scene;
@@ -746,6 +747,125 @@ app.createAutonomousUFO = function () {
       app.addDistanceLOD(app.autonomousUFO, 25, 0x22c55e, 250);
     });
   };
+
+app.createWarpTunnel = function () {
+  const tunnelGroup = new THREE.Group();
+  tunnelGroup.name = 'Warp Tunnel';
+  tunnelGroup.visible = false;
+
+  const segs = app.getSegmentCount(64);
+
+  const tunnelStart = -220;
+  const tunnelEnd = 220;
+  const ringSpacing = 21;
+  const ringColors = [0x22d3ee, 0x818cf8, 0xc084fc];
+  const ringConfigs = Array.from({ length: 21 }, (_, i) => ({
+    radius: 16 + (i % 3) * 1.2,
+    color: ringColors[i % ringColors.length],
+    opacity: 0.16 + (i % 3) * 0.04,
+    zOffset: tunnelStart + i * ringSpacing,
+    speed: 64 + (i % 3) * 12,
+  }));
+
+  ringConfigs.forEach((cfg, i) => {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(cfg.radius, 0.15, segs, segs),
+      new THREE.MeshBasicMaterial({
+        color: cfg.color,
+        transparent: true,
+        opacity: cfg.opacity,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+    );
+    ring.position.z = cfg.zOffset;
+    ring.userData = { speed: cfg.speed, baseZ: cfg.zOffset };
+    tunnelGroup.add(ring);
+  });
+
+  const railPositions = [];
+  const railSegments = 56;
+  for (let rail = 0; rail < 12; rail++) {
+    const angle = (rail / 12) * Math.PI * 2;
+    const radius = 18.5 + Math.sin(rail * 2.4) * 1.2;
+    for (let segment = 0; segment < railSegments; segment++) {
+      const z1 = tunnelStart + ((tunnelEnd - tunnelStart) * segment) / railSegments;
+      const z2 = tunnelStart + ((tunnelEnd - tunnelStart) * (segment + 1)) / railSegments;
+      railPositions.push(
+        Math.cos(angle) * radius, Math.sin(angle) * radius, z1,
+        Math.cos(angle) * radius, Math.sin(angle) * radius, z2
+      );
+    }
+  }
+
+  const railGeometry = new THREE.BufferGeometry();
+  railGeometry.setAttribute('position', new THREE.Float32BufferAttribute(railPositions, 3));
+  const rails = new THREE.LineSegments(railGeometry, new THREE.LineBasicMaterial({
+    color: 0x22d3ee,
+    transparent: true,
+    opacity: 0.22,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  rails.name = 'Warp Tunnel Rails';
+  tunnelGroup.add(rails);
+
+  const streakCount = app.getParticleCount(800);
+  const streakPositions = new Float32Array(streakCount * 6);
+  const streakColors = new Float32Array(streakCount * 6);
+  const streakSpeeds = new Float32Array(streakCount);
+  const streakLengths = new Float32Array(streakCount);
+
+  for (let i = 0; i < streakCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 2 + Math.random() * 16;
+    const z = tunnelStart + Math.random() * (tunnelEnd - tunnelStart);
+    const length = 5 + Math.random() * 19;
+    const offset = i * 6;
+
+    streakLengths[i] = length;
+    streakPositions[offset] = Math.cos(angle) * radius;
+    streakPositions[offset + 1] = Math.sin(angle) * radius;
+    streakPositions[offset + 2] = z;
+    streakPositions[offset + 3] = streakPositions[offset];
+    streakPositions[offset + 4] = streakPositions[offset + 1];
+    streakPositions[offset + 5] = z - length;
+
+    const c = Math.random() > 0.5 ? 0 : 1;
+    const color = c === 0 ? [0.13, 0.82, 0.98] : [0.66, 0.4, 0.98];
+    streakColors.set(color, offset);
+    streakColors.set(color, offset + 3);
+    streakSpeeds[i] = 90 + Math.random() * 260;
+  }
+
+  const streakGeometry = new THREE.BufferGeometry();
+  streakGeometry.setAttribute('position', new THREE.BufferAttribute(streakPositions, 3));
+  streakGeometry.setAttribute('color', new THREE.BufferAttribute(streakColors, 3));
+
+  const streakMaterial = new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    opacity: 0.55,
+  });
+
+  const streakParticles = new THREE.LineSegments(streakGeometry, streakMaterial);
+  streakParticles.name = 'Warp Streaks';
+  streakParticles.userData = {
+    speeds: streakSpeeds,
+    lengths: streakLengths,
+    count: streakCount,
+    start: tunnelStart,
+    end: tunnelEnd,
+  };
+  tunnelGroup.add(streakParticles);
+
+  app.scene.add(tunnelGroup);
+  app.warpTunnel = tunnelGroup;
+  app.warpTunnelParticles = streakParticles;
+};
 
 app.createAndromeda = function () {
   const andromedaGroup = new THREE.Group();

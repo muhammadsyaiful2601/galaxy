@@ -30,11 +30,9 @@
 
   <div id="warp-overlay" class="absolute inset-0 z-10"></div>
 
-  <!-- Warp tunnel visual effect (radial streaks) -->
+  <!-- Warp tunnel visual effect -->
   <div id="warp-tunnel" class="absolute inset-0 z-20 pointer-events-none opacity-0 transition-opacity duration-300">
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_600%_600%_at_50%_50%,transparent_0%_,rgba(6,182,212,0.15)_60%_,rgba(168,85,247,0.1)_100%)] animate-[spin_20s_linear_infinite]"></div>
-    <div class="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0%_,transparent_2%_,rgba(6,182,212,0.08)_2%_,rgba(6,182,212,0.08)_4%_,transparent_4%_,transparent_100%)] animate-[warp-zoom_3s_linear_infinite] opacity-60"></div>
-    <div class="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0%_,transparent_2%_,rgba(168,85,247,0.06)_2%_,rgba(168,85,247,0.06)_4%_,transparent_4%_,transparent_100%)] animate-[warp-zoom_4s_linear_infinite_reverse] opacity-40"></div>
+    <div class="warp-ray-field absolute inset-0"></div>
   </div>
 
   <!-- Warp progress bar overlay -->

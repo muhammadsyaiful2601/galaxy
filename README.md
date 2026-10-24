@@ -10,7 +10,7 @@ Simulasi ruang angkasa 3D interaktif dengan sistem planet, glitch warp drive, da
 - 🕳️ **Sagittarius A\*** — Lubang hitam supermacia dengan model GLB 31.3 MB, akresi disk, glow, dan distorti procedural
 - ☀️ **Matahari** — Model GLB 3D dengan efek cahaya
 - 🚀 **Spaceship 3 tipe** — Recon (cepat), Heavy (lambat/tahan lumpur), UFO (sedang/alien)
-- 🌌 **Warp Drive** — Efek warp saat berpindah ke target: bintang meregang menjadi garis, rotasi cepat, HUD kecepatan super (999+ LY/s), dan overlay tunnel
+- 🌌 **Warp Drive** — Terowongan perspektif 3D dengan ring dan streak yang melesat, efek percepatan FOV, dan HUD kecepatan yang mengikuti fase warp
 - 🎮 **Kontrol WASD** — Gerak kamera/spaceship dengan kecepatan bervariasi menurut tipe kapal
 - 📊 **HUD** — Informasi target, jarak, dan kecepatan warp
 - 🎵 **Audio** — Efek suara klik, warp, dan perpindahan spaceship
@@ -97,9 +97,9 @@ Setiap spaceship memiliki kecepatan gerak yang berbeda:
 
 | Tipe | Kecepatan | Keterangan |
 |------|-----------|------------|
-| **Recon** | 45 unit/detik | Cepat, cetak kelincah, cocok untuk eksplorasi jarak jauh |
-| **Heavy** | 20 unit/detik | Lambat, tahan lumpur, cocok untuk misi berat |
-| **UFO** | 32 unit/detik | Sedang, teknologi alien, stabil |
+| **Recon** | 45 unit/detik | Kecepatan dasar |
+| **Heavy** | 9 unit/detik | 5 kali lebih lambat dari Recon |
+| **UFO** | 450 unit/detik | 10 kali lebih cepat dari Recon |
 
 Kecepatan diterapkan otomatis saat memilih spaceship melalui menu **Select Ship**.
 

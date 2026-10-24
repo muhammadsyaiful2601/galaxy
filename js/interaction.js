@@ -223,6 +223,14 @@ app.warpToCurrentTarget = function (customDuration = null) {
     app.isWarping = true;
     app.isCountdown = false;
 
+    // Inisialisasi warp tunnel 3D jika belum ada
+    if (app.warpTunnel) {
+      app.warpTunnel.visible = true;
+    } else if (typeof app.createWarpTunnel === 'function') {
+      app.createWarpTunnel();
+      if (app.warpTunnel) app.warpTunnel.visible = true;
+    }
+
     // Store reference for cancel
     const startCamera = app.camera.position.clone();
     const startControlsTarget = app.controls.target.clone();
@@ -230,6 +238,8 @@ app.warpToCurrentTarget = function (customDuration = null) {
     const warpProgress = { value: 0 };
 
     app.controls.enabled = false;
+    app.warpProgress = 0;
+    app.warpBaseFov = app.camera.fov;
 
     const cameraOffset = app.camera.position.clone().sub(targetPos);
     if (cameraOffset.lengthSq() === 0) {
@@ -253,6 +263,7 @@ app.warpToCurrentTarget = function (customDuration = null) {
       duration: duration,
       ease: 'power3.inOut',
       onUpdate: () => {
+        app.warpProgress = warpProgress.value;
         app.warpTarget.getWorldPosition(targetPos);
         app.controls.target.copy(startControlsTarget).lerp(targetPos, warpProgress.value);
         destinationCam.copy(targetPos).add(cameraOffset);
@@ -267,19 +278,6 @@ app.warpToCurrentTarget = function (customDuration = null) {
       ease: 'none'
     });
 
-    const speedHUD = document.getElementById('hud-speed');
-    gsap.to({ val: 0 }, {
-      val: 99.9,
-      duration: 1.2,
-      yoyo: true,
-      repeat: 1,
-      onUpdate: function () {
-        speedHUD.innerText = this.targets()[0].val.toFixed(2) + ' LY/s';
-      },
-      onComplete: () => {
-        speedHUD.innerText = '0.00 LY/s';
-      }
-    });
   }
 };
 
@@ -307,20 +305,35 @@ app.cancelWarp = function () {
     }
   }
 
+  if (app.currentWarpTL) {
+    app.currentWarpTL.kill();
+    app.currentWarpTL = null;
+  }
+  if (app.currentWarpProgressTween) {
+    app.currentWarpProgressTween.kill();
+    app.currentWarpProgressTween = null;
+  }
+
   // Reset state warping agar bisa warp lagi
   app.isWarping = false;
+  app.warpProgress = 0;
   app.warpTarget = null;
   app.isAligning = false;
   app.isCountdown = false;
+
+  // Sembunyikan warp tunnel 3D
+  if (app.warpTunnel) app.warpTunnel.visible = false;
 
   // Sembunyikan UI warp
   const overlay = document.getElementById('warp-overlay');
   const tunnel = document.getElementById('warp-tunnel');
   const progressContainer = document.getElementById('warp-progress-container');
+  const progressBar = document.getElementById('warp-progress-bar');
   const cancelBtn = document.getElementById('btn-cancel-warp');
   if (overlay) overlay.style.opacity = '0';
   if (tunnel) tunnel.style.opacity = '0';
   if (progressContainer) progressContainer.style.opacity = '0';
+  if (progressBar) progressBar.style.width = '0%';
   if (cancelBtn) {
     cancelBtn.style.opacity = '0';
     cancelBtn.style.pointerEvents = 'none';
@@ -334,10 +347,16 @@ app.cancelWarp = function () {
 app.finishWarp = function (arrived = true) {
   const arrivalTarget = app.warpTarget || app.activeTarget;
   app.isWarping = false;
+  app.warpProgress = 0;
   app.isAligning = false;
   app.isCountdown = false;
   app.warpTarget = null;
   app.audio.stopWarpFile();
+  app.currentWarpTL = null;
+
+  // Sembunyikan warp tunnel 3D
+  if (app.warpTunnel) app.warpTunnel.visible = false;
+
   const overlay = document.getElementById('warp-overlay');
   const tunnel = document.getElementById('warp-tunnel');
   const progressContainer = document.getElementById('warp-progress-container');

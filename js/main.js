@@ -3,6 +3,7 @@ window.onload = function () {
   app.setupRaycaster();
   app.createSpiralGalaxy();
   app.createStarfield();
+  app.createWarpTunnel();
   app.createNebula();
   app.createSolarSystem();
   app.createGalaxyCenter();
