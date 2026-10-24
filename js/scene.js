@@ -760,7 +760,7 @@ app.createAndromeda = function () {
     andromedaModel.name = 'Andromeda Model';
 
     // Skala galaksi Andromeda agar bisa di amati
-    andromedaModel.scale.setScalar(15);
+    andromedaModel.scale.setScalar(5);
 
     andromedaModel.traverse((child) => {
       if (child.isMesh) {

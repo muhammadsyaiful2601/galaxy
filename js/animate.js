@@ -158,9 +158,15 @@ app.animate = function () {
     if (app.audio && typeof app.audio.playEngine === 'function') {
       app.audio.playEngine(true);
     }
+    if (app.audio && typeof app.audio.playShipSound === 'function') {
+      app.audio.playShipSound(app.currentShipType);
+    }
   } else {
     if (app.audio && typeof app.audio.playEngine === 'function') {
       app.audio.playEngine(false);
+    }
+    if (app.audio && typeof app.audio.stopShipSound === 'function') {
+      app.audio.stopShipSound();
     }
   }
 
