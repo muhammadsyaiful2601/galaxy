@@ -759,8 +759,8 @@ app.createAndromeda = function () {
     const andromedaModel = gltf.scene;
     andromedaModel.name = 'Andromeda Model';
 
-    // Skala besar sebagai galaksi Andromeda
-    andromedaModel.scale.setScalar(80);
+    // Skala galaksi Andromeda agar bisa di amati
+    andromedaModel.scale.setScalar(15);
 
     andromedaModel.traverse((child) => {
       if (child.isMesh) {
@@ -949,7 +949,7 @@ app.createPillarsOfCreation = function () {
 app.createBlackHole = function () {
     const group = new THREE.Group();
     group.name = 'Sagittarius A*';
-    group.position.set(26000, 0, 0);
+    group.position.set(4000, 0, 0);
 
     const loader = new THREE.GLTFLoader();
     loader.load('asset3D/object/black_hole.glb', (gltf) => {
@@ -961,7 +961,7 @@ app.createBlackHole = function () {
           child.receiveShadow = true;
         }
       });
-      bhModel.scale.setScalar(1.0);
+      bhModel.scale.setScalar(0.3);
       group.add(bhModel);
     }, undefined, (err) => {
       console.error('Gagal memuat model black_hole.glb:', err);

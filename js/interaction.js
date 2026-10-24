@@ -307,6 +307,12 @@ app.cancelWarp = function () {
     }
   }
 
+  // Reset state warping agar bisa warp lagi
+  app.isWarping = false;
+  app.warpTarget = null;
+  app.isAligning = false;
+  app.isCountdown = false;
+
   // Sembunyikan UI warp
   const overlay = document.getElementById('warp-overlay');
   const tunnel = document.getElementById('warp-tunnel');
@@ -319,9 +325,7 @@ app.cancelWarp = function () {
     cancelBtn.style.opacity = '0';
     cancelBtn.style.pointerEvents = 'none';
   }
-  app.warpTarget = null;
-  app.isAligning = false;
-  app.isCountdown = false;
+
   app.controls.enabled = app.currentViewMode !== '1st';
   app.showToast('WARP DIBATALKAN');
   return;
