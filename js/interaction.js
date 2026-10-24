@@ -104,7 +104,7 @@ app.flyToNodeByName = function (name) {
 };
 
 app.warpToCurrentTarget = function (customDuration = null) {
-  if (!app.activeTarget || app.isWarping || app.isAligning) return;
+  if (!app.activeTarget || app.isWarping || app.isAligning || app.isCountdown) return;
 
   app.warpTarget = app.activeTarget;
   const targetPos = new THREE.Vector3();
@@ -126,7 +126,7 @@ app.warpToCurrentTarget = function (customDuration = null) {
   app.audio.playClick('warp-btn');
   app.audio.playWarpFile();
 
-  // Siapkan elemen UI warp (tampil saat alignment selesai)
+  // Siapkan elemen UI warp
   const overlay = document.getElementById('warp-overlay');
   const tunnel = document.getElementById('warp-tunnel');
   const progressContainer = document.getElementById('warp-progress-container');
@@ -140,21 +140,21 @@ app.warpToCurrentTarget = function (customDuration = null) {
   cancelBtn.style.pointerEvents = 'auto';
 
   // ============================================================
-  // FASE 1: Alignment — putar spaceship menghadap ke target
+  // FASE 1: Alignment — putar spaceship DAN kamera menghadap target
   // ============================================================
   app.isAligning = true;
   app.controls.enabled = false;
   app.showToast('MENGARAH KE ' + app.warpTarget.name.toUpperCase() + '...');
 
-  const startQuat = app.activeShipGroup ? app.activeShipGroup.quaternion.clone() : new THREE.Quaternion();
+  const startShipQuat = app.activeShipGroup ? app.activeShipGroup.quaternion.clone() : new THREE.Quaternion();
+  const startCamQuat = app.camera.quaternion.clone();
 
-  // Hitung arah dari kamera ke target (hanya bidang XZ, tanpa miring ke atas/bawah)
+  // Hitung arah ke target (hanya bidang XZ, tanpa miring ke atas/bawah)
   const dir = new THREE.Vector3().subVectors(targetPos, app.camera.position);
   dir.y = 0;
   if (dir.lengthSq() > 0.0001) {
     dir.normalize();
   } else {
-    // Jika sudah di posisi target, jangan putar
     dir.copy(new THREE.Vector3(0, 0, -1));
   }
 
@@ -169,23 +169,59 @@ app.warpToCurrentTarget = function (customDuration = null) {
     duration: ALIGN_DURATION,
     ease: 'power2.inOut',
     onUpdate: () => {
+      // Rotasi spaceship
       if (app.activeShipGroup) {
-        app.activeShipGroup.quaternion.slerpQuaternions(startQuat, targetQuat, alignProgress.value);
+        app.activeShipGroup.quaternion.slerpQuaternions(startShipQuat, targetQuat, alignProgress.value);
       }
+      // Rotasi kamera mengikuti arah target
+      app.camera.quaternion.slerpQuaternions(startCamQuat, targetQuat, alignProgress.value);
+      app.camera.updateMatrixWorld();
+      // Update controls.target agar mengikuti arah pandang kamera
+      const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(app.camera.quaternion);
+      app.controls.target.copy(app.camera.position).add(camForward.multiplyScalar(100));
     },
     onComplete: () => {
       app.isAligning = false;
       app.currentAlignTween = null;
-      app.showToast('WARP DRIVE ENGAGED -> ' + app.warpTarget.name.toUpperCase());
-      startWarpPhase();
+      startCountdown();
     }
   });
 
   // ============================================================
-  // FASE 2: Warp — efek visual dan pergerakan kamera
+  // FASE 2: Countdown 3 detik sebelum warp dimulai
+  // ============================================================
+  function startCountdown() {
+    app.isCountdown = true;
+    let countdownValue = 3;
+
+    app.currentCountdownInterval = setInterval(() => {
+      if (!app.isCountdown) {
+        clearInterval(app.currentCountdownInterval);
+        app.currentCountdownInterval = null;
+        return;
+      }
+      if (countdownValue > 0) {
+        app.showToast('WARPING AKAN DIMULAI DALAM ' + countdownValue + ' DETIK');
+        countdownValue--;
+      } else {
+        clearInterval(app.currentCountdownInterval);
+        app.currentCountdownInterval = null;
+        app.isCountdown = false;
+        startWarpPhase();
+      }
+    }, 1000);
+
+    // Tampilkan detik pertama segera
+    app.showToast('WARPING AKAN DIMULAI DALAM ' + countdownValue + ' DETIK');
+    countdownValue--;
+  }
+
+  // ============================================================
+  // FASE 3: Warp — efek visual dan pergerakan kamera
   // ============================================================
   function startWarpPhase() {
     app.isWarping = true;
+    app.isCountdown = false;
 
     // Store reference for cancel
     const startCamera = app.camera.position.clone();
@@ -248,10 +284,19 @@ app.warpToCurrentTarget = function (customDuration = null) {
 };
 
 app.cancelWarp = function () {
-  if (!app.isWarping && !app.isAligning) return;
+  if (!app.isWarping && !app.isAligning && !app.isCountdown) return;
 
   app.audio.playClick('ui');
   app.audio.stopWarpFile();
+
+  // Kill countdown interval jika sedang fase countdown
+  if (app.isCountdown) {
+    app.isCountdown = false;
+    if (app.currentCountdownInterval) {
+      clearInterval(app.currentCountdownInterval);
+      app.currentCountdownInterval = null;
+    }
+  }
 
   // Kill alignment tween jika sedang fase alignment
   if (app.isAligning) {
@@ -260,43 +305,33 @@ app.cancelWarp = function () {
       app.currentAlignTween.kill();
       app.currentAlignTween = null;
     }
-    // Sembunyikan UI warp yang sudah ditampilkan
-    const overlay = document.getElementById('warp-overlay');
-    const tunnel = document.getElementById('warp-tunnel');
-    const progressContainer = document.getElementById('warp-progress-container');
-    const cancelBtn = document.getElementById('btn-cancel-warp');
-    if (overlay) overlay.style.opacity = '0';
-    if (tunnel) tunnel.style.opacity = '0';
-    if (progressContainer) progressContainer.style.opacity = '0';
-    if (cancelBtn) {
-      cancelBtn.style.opacity = '0';
-      cancelBtn.style.pointerEvents = 'none';
-    }
-    app.warpTarget = null;
-    app.controls.enabled = app.currentViewMode !== '1st';
-    app.showToast('WARP DIBATALKAN');
-    return;
   }
 
-  // Kill the GSAP timeline
-  if (app.currentWarpTL) {
-    app.currentWarpTL.kill();
-    app.currentWarpTL = null;
+  // Sembunyikan UI warp
+  const overlay = document.getElementById('warp-overlay');
+  const tunnel = document.getElementById('warp-tunnel');
+  const progressContainer = document.getElementById('warp-progress-container');
+  const cancelBtn = document.getElementById('btn-cancel-warp');
+  if (overlay) overlay.style.opacity = '0';
+  if (tunnel) tunnel.style.opacity = '0';
+  if (progressContainer) progressContainer.style.opacity = '0';
+  if (cancelBtn) {
+    cancelBtn.style.opacity = '0';
+    cancelBtn.style.pointerEvents = 'none';
   }
-
-  if (app.currentWarpProgressTween) {
-    app.currentWarpProgressTween.kill();
-    app.currentWarpProgressTween = null;
-  }
-
-  app.finishWarp(false);
+  app.warpTarget = null;
+  app.isAligning = false;
+  app.isCountdown = false;
+  app.controls.enabled = app.currentViewMode !== '1st';
   app.showToast('WARP DIBATALKAN');
+  return;
 };
 
 app.finishWarp = function (arrived = true) {
   const arrivalTarget = app.warpTarget || app.activeTarget;
   app.isWarping = false;
   app.isAligning = false;
+  app.isCountdown = false;
   app.warpTarget = null;
   app.audio.stopWarpFile();
   const overlay = document.getElementById('warp-overlay');

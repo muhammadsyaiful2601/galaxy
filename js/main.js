@@ -2,7 +2,7 @@ window.onload = function () {
   app.initEngine();
   app.setupRaycaster();
   app.createSpiralGalaxy();
-  app.createMilkyWay();
+  app.createStarfield();
   app.createNebula();
   app.createSolarSystem();
   app.createGalaxyCenter();
