@@ -28,6 +28,14 @@ app.isAligning = false;
 app.currentAlignTween = null;
 app.isCountdown = false;
 app.currentCountdownInterval = null;
+app.ufoState = {
+  currentTarget: null,
+  changeTimer: 0,
+  changeInterval: 5,
+  speed: 15,
+  wanderRadius: 250,
+  homePosition: new THREE.Vector3(50, 25, 70)
+};
 
 // Kecepatan gerak per tipe spaceship (satuan per detik)
 app.shipSpeedMap = {
@@ -683,6 +691,13 @@ app.createAutonomousUFO = function () {
     app.autonomousUFO.name = 'Autonomous Alien UFO';
     app.autonomousUFO.position.set(50, 25, 70);
     app.scene.add(app.autonomousUFO);
+
+    // Inisialisasi target wander awal
+    app.ufoState.currentTarget = new THREE.Vector3(
+      50 + (Math.random() - 0.5) * 200,
+      25 + (Math.random() - 0.5) * 100,
+      70 + (Math.random() - 0.5) * 200
+    );
 
     const ufoLoader = new THREE.GLTFLoader();
     ufoLoader.load('asset3D/object/ufo.glb', (gltf) => {

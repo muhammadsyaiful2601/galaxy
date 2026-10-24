@@ -87,11 +87,45 @@ app.animate = function () {
     });
   }
 
-  if (app.autonomousUFO) {
-    app.autonomousUFO.position.x = Math.sin(elapsedTime * 0.3) * 65 + 15;
-    app.autonomousUFO.position.z = Math.cos(elapsedTime * 0.3) * 65 - 10;
-    app.autonomousUFO.position.y = 25 + Math.sin(elapsedTime * 1.0) * 3;
-    app.autonomousUFO.rotation.y += 0.02;
+  if (app.autonomousUFO && app.ufoState) {
+    const delta = app.clock.getDelta();
+    const ufo = app.autonomousUFO;
+    const state = app.ufoState;
+
+    // Hitung timer pergantian target
+    state.changeTimer += delta;
+
+    // Pilih target baru jika timer habis atau sudah cukup dekat ke target saat ini
+    if (!state.currentTarget || state.changeTimer >= state.changeInterval || ufo.position.distanceTo(state.currentTarget) < 5) {
+      const angle = Math.random() * Math.PI * 2;
+      const elevation = (Math.random() - 0.5) * Math.PI / 3; // -30 to +30 derajat
+      const dist = state.wanderRadius * (0.5 + Math.random());
+
+      state.currentTarget = new THREE.Vector3(
+        state.homePosition.x + Math.cos(angle) * Math.cos(elevation) * dist,
+        state.homePosition.y + Math.sin(elevation) * dist * 0.5,
+        state.homePosition.z + Math.sin(angle) * Math.cos(elevation) * dist
+      );
+      state.changeTimer = 0;
+      state.changeInterval = 3 + Math.random() * 5; // 3-8 detik
+    }
+
+    // Gerak ke arah target
+    const dir = new THREE.Vector3().subVectors(state.currentTarget, ufo.position);
+    const dist = dir.length();
+
+    if (dist > 0.1) {
+      dir.normalize();
+      ufo.position.addScaledVector(dir, state.speed * delta);
+
+      // Rotasi UFO menghadap arah gerak (hanya sumbu Y)
+      const targetRotation = Math.atan2(dir.x, dir.z);
+      ufo.rotation.y += (targetRotation - ufo.rotation.y) * 0.1;
+    }
+
+    // Tilting halus berdasarkan arah gerak
+    const tilt = dir.clone().normalize().y * 0.3;
+    ufo.rotation.x += (tilt - ufo.rotation.x) * 0.05;
   }
 
   if (app.followTarget && !app.isWarping) {
