@@ -732,40 +732,29 @@ app.createAutonomousUFO = function () {
   };
 
 app.createAndromeda = function () {
-    const andromedaGroup = new THREE.Group();
-    andromedaGroup.name = 'Andromeda';
-    andromedaGroup.position.set(4200, 0, -3600);
+  const loader = new THREE.GLTFLoader();
+  loader.load('asset3D/object/andromeda.glb', (gltf) => {
+    const andromedaModel = gltf.scene;
+    andromedaModel.name = 'Andromeda';
+    andromedaModel.position.set(4200, 0, -3600);
 
-    const segs = app.getSegmentCount(64);
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(18, segs, segs),
-      new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 2, roughness: 0.4, metalness: 0.1 })
-    );
-    andromedaGroup.add(core);
+    // Skala besar sebagai galaksi Andromeda
+    andromedaModel.scale.setScalar(80);
 
-    const glow = new THREE.Mesh(
-      new THREE.SphereGeometry(26, segs, segs),
-      new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.35, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending })
-    );
-    andromedaGroup.add(glow);
+    andromedaModel.traverse((child) => {
+      if (child.isMesh) {
+        child.name = 'Andromeda';
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
 
-    const armsCount = app.getParticleCount(4000);
-    const arms = new THREE.Points(
-      new THREE.BufferGeometry().setFromPoints(
-        Array.from({ length: armsCount }, () => {
-          const r = Math.random() * 120 + 20;
-          const a = Math.random() * Math.PI * 4;
-          return new THREE.Vector3(Math.cos(a) * r, (Math.random() - 0.5) * 8, Math.sin(a) * r);
-        })
-      ),
-      new THREE.PointsMaterial({ color: 0xffd700, size: 1.5, map: app.getGlowTexture(), transparent: true, depthWrite: false, opacity: 0.6, blending: THREE.AdditiveBlending })
-    );
-    arms.rotation.x = Math.PI / 2.2;
-    andromedaGroup.add(arms);
-
-    app.scene.add(andromedaGroup);
-    app.celestialNodes.push(andromedaGroup);
-    app.addDistanceLOD(andromedaGroup, 145, 0xffd700, 2500);
+    app.scene.add(andromedaModel);
+    app.celestialNodes.push(andromedaModel);
+    app.addDistanceLOD(andromedaModel, 145, 0xffd700, 2500);
+  }, undefined, (err) => {
+    console.error('Gagal memuat model andromeda.glb:', err);
+  });
 };
 
 app.createTriangulum = function () {
