@@ -2,7 +2,7 @@
 
 Simulasi ruang angkasa 3D interaktif dengan sistem planet, glitch warp drive, dan berbagai tipe spaceship. Dibangun dengan [Three.js](https://threejs.org/) dan [GSAP](https://gsap.com/).
 
-![Preview](index.html)
+![Screenshot aplikasi Antariksa](docs/screenshots/antariksa-preview.png)
 
 ## Fitur Utama
 
