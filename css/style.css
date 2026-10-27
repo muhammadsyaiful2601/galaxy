@@ -92,6 +92,21 @@ body {
   z-index: 25;
 }
 
+/* Keep screen scan-lines off detailed boss models so texture stays clean. */
+.boss-fight-page .scan-line {
+  display: none;
+}
+
+.boss-fight-page.boss-look-locked,
+.boss-fight-page.boss-look-locked #canvas-container {
+  cursor: none !important;
+}
+
+.index-page.pointer-look-locked,
+.index-page.pointer-look-locked #canvas-container {
+  cursor: none !important;
+}
+
 /* Volume slider styling */
 input[type=range] {
   -webkit-appearance: none;

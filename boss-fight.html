@@ -1,0 +1,588 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interstellar Odyssey - Boss Fight</title>
+
+  <script>
+    window.cdnLoadFailed = function (name) {
+      console.error('CDN load failed: ' + name);
+    };
+  </script>
+
+  <script src="https://cdn.tailwindcss.com" onerror="cdnLoadFailed('Tailwind CSS')"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onerror="cdnLoadFailed('FontAwesome')">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="cdnLoadFailed('Three.js')"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" onerror="cdnLoadFailed('OrbitControls')"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" onerror="cdnLoadFailed('GLTFLoader')"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" onerror="cdnLoadFailed('GSAP')"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <script src="js/config.js"></script>
+  <script src="js/textures.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/interaction.js"></script>
+  <script src="js/animate.js"></script>
+  <script src="js/bosses/boss-base.js"></script>
+  <script src="js/boss-fight.js"></script>
+</head>
+<body class="boss-fight-page relative w-screen h-screen overflow-hidden">
+
+  <!-- Boss Loading Overlay -->
+  <div id="boss-loading" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black text-slate-200">
+    <div class="text-4xl mb-4 animate-spin"><i class="fa-solid fa-circle-notch"></i></div>
+    <h1 class="font-orbitron text-2xl font-bold tracking-widest text-cyan-400 mb-2">BOSS FIGHT</h1>
+    <p id="loading-text" class="text-[10px] font-orbitron tracking-wider text-slate-400">Memuat aset bos...</p>
+    <div class="mt-6 w-64 h-1 bg-slate-800 rounded overflow-hidden border border-slate-600">
+      <div id="loading-bar" class="h-full bg-cyan-500 w-0 transition-all duration-300"></div>
+    </div>
+  </div>
+
+  <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-crosshair"></div>
+
+  <div id="warp-overlay" class="absolute inset-0 z-10"></div>
+
+  <div id="warp-tunnel" class="absolute inset-0 z-20 pointer-events-none opacity-0 transition-opacity duration-300">
+    <div class="warp-ray-field absolute inset-0"></div>
+  </div>
+
+  <div id="warp-progress-container" class="absolute top-0 left-0 w-full z-30 h-1 bg-slate-900/50 opacity-0 transition-opacity duration-300 pointer-events-none ui-panel">
+    <div id="warp-progress-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear shadow-[0_0_15px_rgba(6,182,212,0.8)]"></div>
+  </div>
+
+  <button id="btn-cancel-warp" onclick="cancelWarp()" class="fixed bottom-40 left-1/2 -translate-x-1/2 z-40 hud-panel px-6 py-3 rounded-xl border border-cyan-500/50 bg-slate-900/80 text-cyan-300 font-orbitron font-bold text-sm tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)] ui-panel">
+    <i class="fa-solid fa-ban text-xs"></i>
+    <span>CANCEL WARP</span>
+  </button>
+
+  <div id="crosshair" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center pointer-events-none opacity-50">
+    <div class="w-10 h-10 border border-white/20 rounded-full flex items-center justify-center relative">
+      <div class="w-1 h-1 bg-white rounded-full"></div>
+      <div class="absolute -top-0.5 w-0.5 h-2 bg-white"></div>
+      <div class="absolute -bottom-0.5 w-0.5 h-2 bg-white"></div>
+      <div class="absolute -left-0.5 h-0.5 w-2 bg-white"></div>
+      <div class="absolute -right-0.5 h-0.5 w-2 bg-white"></div>
+    </div>
+  </div>  <!-- Combat HUD -->
+  <div id="combat-hud" class="absolute bottom-4 left-4 z-30 w-56 hud-panel rounded-xl p-3 pointer-events-none ui-panel">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-orbitron text-[10px] font-bold tracking-wider text-cyan-300">COMBAT LINK</span>
+      <span id="combat-status" class="font-orbitron text-[9px] font-bold text-slate-300">SPACE: FIRE LASER</span>
+    </div>
+    <div class="mb-2">
+      <div class="flex justify-between text-[9px] font-orbitron text-slate-300 mb-1">
+        <span>SHIP HULL</span><span id="player-hull-label">100 / 100</span>
+      </div>
+      <div class="h-1.5 rounded bg-slate-800 overflow-hidden">
+        <div id="player-hull-fill" class="h-full bg-green-500 w-full transition-[width] duration-150"></div>
+      </div>
+    </div>
+    <div class="mb-2">
+      <div class="flex justify-between text-[9px] font-orbitron text-slate-300 mb-1">
+        <span>ALIEN UFO</span><span id="alien-ufo-label">NEUTRAL</span>
+      </div>
+      <div class="h-1 rounded bg-slate-800 overflow-hidden">
+        <div id="alien-ufo-fill" class="h-full w-full bg-red-500 transition-[width] duration-150"></div>
+      </div>
+    </div>
+    <div class="mt-2 border-t border-slate-700/50 pt-2">
+      <div class="flex justify-between text-[9px] font-orbitron text-slate-300 mb-1">
+        <span id="boss-hud-name">BOS: ARGUS</span><span id="boss-hud-health-label">NEUTRAL</span>
+      </div>
+      <div class="h-1.5 rounded bg-slate-800 overflow-hidden">
+        <div id="boss-hud-health-fill" class="h-full w-full bg-red-500 transition-[width] duration-150"></div>
+      </div>
+    </div>
+  </div>
+
+  <button id="btn-toggle-ui" onclick="toggleUI()" class="absolute top-4 right-4 z-50 w-10 h-10 rounded bg-slate-800/80 border border-slate-600/50 hover:bg-slate-600 text-slate-200 flex items-center justify-center transition-all backdrop-blur-sm backdrop-filter backdrop-blur-[4px] text-sm">
+    <i id="ui-toggle-icon" class="fa-solid fa-eye-slash"></i>
+    <span class="sr-only pointer-events-none">Toggle UI</span>
+  </button>
+
+  <header class="absolute top-4 left-4 right-4 z-30 flex flex-wrap justify-between items-center gap-4 pointer-events-none px-4 ui-panel">
+    <div class="hud-panel px-4 py-2 rounded-xl flex items-center gap-3 pointer-events-auto text-center md:text-left">
+      <div class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-300 text-lg shadow-lg">
+        <i class="fa-solid font-orbitron fa-shuttle-space"></i>
+      </div>
+      <div>
+        <h1 class="font-orbitron font-extrabold text-sm md:text-base text-white tracking-wider flex items-center gap-1.5 leading-tight">
+          INTERSTELLAR <span class="text-slate-300">ODYSSEY</span>
+        </h1>
+        <div class="flex items-center gap-2 text-[10px] text-slate-400/70">
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-ping"></span>
+          <span>SECTOR 07-X Ã¢â‚¬Â¢ LINK STABLE</span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="hud-panel px-4 py-2 rounded-xl flex items-center gap-3 text-sm pointer-events-auto">
+      <div class="text-center hidden md:block">
+        <p class="text-[10px] text-slate-400 tracking-wider">NAV SPEED</p>
+        <p id="hud-speed" class="font-orbitron text-slate-300 font-bold text-xs">0.00 LY/s</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center">
+        <p class="text-[10px] text-slate-400 tracking-wider">CURRENT TARGET</p>
+        <p id="hud-target-name" class="font-orbitron text-slate-300 font-bold text-xs">BOSS FIGHT</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center">
+        <p class="text-[10px] text-slate-400 tracking-wider">DISTANCE</p>
+        <p id="hud-distance" class="font-orbitron text-slate-300 font-bold text-xs">0 AU</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center whitespace-nowrap">
+        <p class="text-[9px] text-slate-400 tracking-wider">WAKTU INDONESIA BARAT</p>
+        <p id="hud-clock-time" class="font-orbitron text-cyan-300 font-bold text-xs">--:--:-- WIB</p>
+        <p id="hud-clock-date" class="text-[9px] text-slate-400">--</p>
+      </div>
+      <div class="w-px h-6 bg-slate-600/40 hidden md:block"></div>
+      <div class="text-center flex items-center gap-1" id="audio-controls">
+        <button id="btn-audio-mute" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all text-[10px]">
+          <i class="fa-solid fa-volume-up"></i>
+        </button>
+        <input type="range" id="audio-volume" min="0" max="1" step="0.1" value="0.6" class="w-16 h-1 bg-slate-700 rounded accent-cyan-400 appearance-none cursor-pointer">
+      </div>
+    </nav>
+  </header>  <!-- LEFT PANELS -->
+  <aside class="absolute top-24 left-4 z-30 md:w-80 w-auto max-w-[92vw] flex flex-col gap-3 pointer-events-auto ui-panel">
+    <div id="panel-spacecraft" class="hud-panel p-3 md:p-4 rounded-2xl panel-collapsible">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-orbitron text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+          <i class="fa-solid fa-rocket mr-1"></i> Spacecraft
+          <span class="text-[10px] bg-white/10 text-slate-300 px-2 py-0.5 rounded-full border border-white/10">Hangar</span>
+        </h2>
+        <button onclick="togglePanel('panel-spacecraft')" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+          <i id="icon-spacecraft" class="fa-solid fa-chevron-up text-[9px]"></i>
+        </button>
+      </div>
+      <div id="content-spacecraft" class="panel-content">
+        <div class="flex flex-col gap-2">
+          <button id="btn-ship-recon" onclick="selectShip('recon')" class="ship-card active text-left p-2 rounded-xl border border-slate-600/60 bg-slate-800/60 hover:bg-slate-700/80 transition-all flex items-center gap-2 group">
+            <div class="w-8 h-8 rounded bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-jet-fighter text-sm"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <span class="font-orbitron text-xs font-bold text-slate-200 truncate">RECON</span>
+                <span class="text-[10px] text-slate-400 font-mono">Light</span>
+              </div>
+              <p class="text-[9px] text-slate-400 line-clamp-1">Interceptor</p>
+            </div>
+          </button>
+          <button id="btn-ship-heavy" onclick="selectShip('heavy')" class="ship-card text-left p-2 rounded-xl border border-slate-700/60 bg-slate-900/50 hover:bg-slate-700/40 transition-all flex items-center gap-2 group">
+            <div class="w-8 h-8 rounded bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-rocket text-sm"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <span class="font-orbitron text-xs font-bold text-slate-200 truncate">HEAVY SHIP</span>
+                <span class="text-[10px] text-slate-400 font-mono">Heavy</span>
+              </div>
+              <p class="text-[9px] text-slate-400 line-clamp-1">Bomber class</p>
+            </div>
+          </button>
+          <button id="btn-ship-ufo" onclick="selectShip('ufo')" class="ship-card text-left p-2 rounded-xl border border-slate-700/60 bg-slate-900/50 hover:bg-slate-700/40 transition-all flex items-center gap-2 group">
+            <div class="w-8 h-8 rounded bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-compact-disc text-sm animate-spin" style="animation-duration: 8s;"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <span class="font-orbitron text-xs font-bold text-slate-200 truncate">ALIEN UFO</span>
+                <span class="text-[10px] text-slate-400 font-mono">Quantum</span>
+              </div>
+              <p class="text-[9px] text-slate-400 line-clamp-1">Gravity saucer</p>
+            </div>
+          </button>
+        </div>
+        <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center">
+          <span class="text-[10px] text-slate-400 font-semibold">Camera View</span>
+          <div class="flex rounded bg-slate-900/80 p-0.5 border border-slate-700">
+            <button id="view-3rd" onclick="setViewMode('3rd')" class="view-btn px-2 py-0.5 rounded-md text-[10px] font-orbitron text-slate-500 hover:text-white transition-all view-btn-3rd">3rd</button>
+            <button id="view-1st" onclick="setViewMode('1st')" class="view-btn px-2 py-0.5 rounded-md text-[10px] font-orbitron text-slate-500 hover:text-white transition-all view-btn-1st">1st</button>
+            <button id="view-free" onclick="setViewMode('free')" class="view-btn px-2 py-0.5 rounded-md text-[10px] font-orbitron text-slate-500 hover:text-white transition-all view-btn-free">Free</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-controls" class="hud-panel p-3 rounded-xl border border-white/10 panel-collapsible">
+      <div class="flex items-center justify-between mb-1">
+        <div class="font-orbitron text-slate-300 text-[10px] font-bold tracking-wider uppercase flex items-center gap-2">
+          <i class="fa-solid fa-gamepad mr-1"></i> Controls
+        </div>
+        <button onclick="togglePanel('panel-controls')" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+          <i id="icon-controls" class="fa-solid fa-chevron-up text-[9px]"></i>
+        </button>
+      </div>
+      <div id="content-controls" class="panel-content">
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">WASD:</span>
+          <span class="text-white font-mono font-medium">Fly</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Click body:</span>
+          <span class="text-white font-mono font-medium">Warp</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Klik area game:</span>
+          <span class="text-white font-mono font-medium">Arahkan kamera</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Escape:</span>
+          <span class="text-white font-mono font-medium">Tampilkan kursor</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Scroll:</span>
+          <span class="text-white font-mono font-medium">Zoom</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">R-click drag:</span>
+          <span class="text-white font-mono font-medium">Pan</span>
+        </div>
+      </div>
+    </div>
+  </aside>  <!-- RIGHT SIDEBAR -->
+  <div id="right-sidebar" class="absolute top-24 right-4 z-30 md:w-80 w-auto max-w-[90vw] max-h-[calc(100vh-7rem)] flex flex-col gap-3 pointer-events-none ui-panel">
+    <aside id="target-card" class="w-full shrink-0 hud-panel p-3 md:p-5 rounded-2xl transition-all pointer-events-auto">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <span class="text-[9px] font-mono text-slate-400 uppercase tracking-widest">Boss Target</span>
+          <h3 id="target-title" class="font-orbitron text-base md:text-lg font-bold text-slate-200 mt-0.5">BOSS</h3>
+        </div>
+        <button onclick="resetCameraView()" class="w-6 h-6 rounded bg-slate-800 border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white flex items-center justify-center transition-all">
+          <i class="fa-solid fa-rotate-left text-[10px]"></i>
+        </button>
+      </div>
+      <p id="target-desc" class="text-slate-300 text-xs md:text-sm leading-relaxed mb-3">Boss encounter zone.</p>
+      <div class="grid grid-cols-2 gap-1.5 mb-3">
+        <div class="bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+          <span class="text-slate-400 block text-[9px] sm:text-xs uppercase">Classification</span>
+          <span id="target-class" class="text-white font-bold text-sm sm:text-base">Boss</span>
+        </div>
+        <div class="bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+          <span class="text-slate-400 block text-[9px] sm:text-xs uppercase">Status</span>
+          <span id="target-size" class="text-white font-bold text-sm sm:text-base">Engaged</span>
+        </div>
+      </div>
+      <button id="btn-exit-boss-fight" class="w-full py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-orbitron font-bold text-xs tracking-wider uppercase border border-red-500/50 transition-all flex items-center justify-center gap-2">
+        <i class="fa-solid fa-arrow-left text-xs"></i>
+        <span>Kembali ke Eksplorasi</span>
+      </button>
+    </aside>
+
+    <aside id="warp-menu" class="w-full min-h-0 pointer-events-auto hidden">
+      <div class="hud-panel p-2 rounded-2xl border border-white/10 flex flex-col gap-1.5 min-h-0">
+        <div class="flex items-center justify-between px-3 py-1">
+          <span class="text-[9px] font-orbitron text-slate-400 font-bold uppercase tracking-wider">Quick Warp Destinations</span>
+          <button onclick="toggleWarpMenu()" class="w-5 h-5 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+            <i class="fa-solid fa-chevron-up text-[9px]"></i>
+          </button>
+        </div>
+        <div id="warp-list" class="flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden px-2 pb-2">
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="toast" class="absolute top-20 left-1/2 -translate-x-1/2 z-40 hud-panel px-4 py-2 rounded-full border border-white/20 text-slate-200 text-[10px] font-orbitron tracking-wider opacity-0 transition-opacity pointer-events-none flex items-center gap-1.5 ui-panel">
+    <i class="fa-solid fa-circle-info text-slate-300 text-[10px]"></i>
+    <span id="toast-text">Target locked.</span>
+  </div>  <!-- Planet Fact Popup -->
+  <div id="planet-popup" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hud-panel p-5 md:p-6 rounded-2xl max-w-md w-full mx-4 opacity-0 pointer-events-none transition-opacity duration-300 transform scale-95 ui-panel">
+    <div class="flex justify-between items-start mb-3">
+      <h3 id="popup-title" class="font-orbitron font-bold text-xl text-white tracking-wider">Boss Info</h3>
+      <button onclick="closePlanetPopup()" class="w-8 h-8 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all">
+        <i class="fa-solid fa-times text-xs"></i>
+      </button>
+    </div>
+    <p id="popup-fact" class="text-slate-300 leading-relaxed mb-4 text-sm md:text-base"></p>
+    <div class="grid grid-cols-2 gap-2 text-xs md:text-sm">
+      <div class="bg-slate-900/50 p-2 rounded border border-slate-800/50">
+        <span class="text-slate-500 block text-[10px] uppercase">Damage</span>
+        <span id="popup-damage" class="text-slate-200 font-bold">-</span>
+      </div>
+      <div class="bg-slate-900/50 p-2 rounded border border-slate-800/50">
+        <span class="text-slate-500 block text-[10px] uppercase">Range</span>
+        <span id="popup-range" class="text-slate-200 font-bold">-</span>
+      </div>
+    </div>
+    <div class="mt-4 pt-3 border-t border-white/10 flex justify-end">
+      <button onclick="closePlanetPopup()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron text-xs font-bold transition-all">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+  <!-- Warp Confirmation Popup -->
+  <div id="warp-confirm-popup" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hud-panel p-6 rounded-2xl max-w-md w-full mx-4 opacity-0 pointer-events-none transition-opacity duration-300 transform scale-95 ui-panel">
+    <div class="flex justify-between items-start mb-2">
+      <h3 id="warp-confirm-title" class="font-orbitron font-bold text-xl text-white tracking-wider">Konfirmasi Warp</h3>
+      <button onclick="cancelWarpConfirm()" class="w-8 h-8 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all">
+        <i class="fa-solid fa-times text-xs"></i>
+      </button>
+    </div>
+    <p id="warp-confirm-message" class="text-slate-300 leading-relaxed mb-4 text-sm md:text-base"></p>
+    <div id="warp-confirm-details" class="bg-slate-900/50 p-3 rounded border border-slate-800/50 mb-4 text-xs md:text-sm">
+      <div class="flex justify-between mb-1">
+        <span class="text-slate-500">Target</span>
+        <span id="warp-confirm-target" class="text-white font-bold">-</span>
+      </div>
+      <div class="flex justify-between mb-1">
+        <span class="text-slate-500">Jarak</span>
+        <span id="warp-confirm-distance" class="text-white font-bold">-</span>
+      </div>
+      <div class="flex justify-between mb-1">
+        <span class="text-slate-500">Kapal</span>
+        <span id="warp-confirm-ship" class="text-white font-bold">-</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-slate-500">Estimasi waktu</span>
+        <span id="warp-confirm-eta" class="text-white font-bold">-</span>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="confirmWarp(true)" id="btn-confirm-warp" class="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-orbitron font-bold text-sm tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+        <i class="fa-solid fa-bolt mr-1"></i> Lanjutkan Warp
+      </button>
+      <button onclick="confirmWarp(false)" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-orbitron font-bold text-sm transition-all">
+        Batal
+      </button>
+    </div>
+  </div>  <script>
+    const BOSS_NAME = new URLSearchParams(window.location.search).get('boss') || 'Argus';
+
+    function onWindowResize() {
+      app.camera.aspect = window.innerWidth / window.innerHeight;
+      app.camera.updateProjectionMatrix();
+      app.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function exitBossFight() {
+      window.location.href = 'index.html';
+    }
+
+    function getBossConfig(name) {
+      const configs = {
+        'Argus': {
+          name: 'Argus',
+          modelPath: 'asset3D/monster/aomretold_-_argus_monster_with_animations.glb',
+          position: { x: 0, y: 0, z: -3000 },
+          scale: 60,
+          health: 3000,
+          triggerDistance: 2000,
+          attackRange: 1500,
+          damage: 45,
+          projectileSpeed: 180,
+          projectileColor: 0xff0040,
+          animationName: null,
+          lodDetail: 150,
+          lodColor: 0xff0040,
+          lodDistance: 3000,
+        },
+        'Mothership': {
+          name: 'Mothership',
+          modelPath: 'asset3D/monster/mother ship ufo.glb',
+          position: { x: 0, y: 0, z: -3000 },
+          // Ukuran menengah supaya kapal terlihat jelas dari jarak encounter.
+          scale: 25,
+          health: 5000,
+          triggerDistance: 2500,
+          attackRange: 1800,
+          damage: 55,
+          projectileSpeed: 200,
+          projectileColor: 0x00ffff,
+          // Track rotasi bawaan "Scene" membuat geometri Mothership glitch.
+          disableModelAnimations: true,
+          configureMaterials: true,
+          disableShadows: true,
+          proceduralMotion: { bobHeight: 18, bobSpeed: 0.65, turnSpeed: 0.16, swayAngle: 0.035, swaySpeed: 0.48 },
+          animationName: null,
+        },
+        'TankAlien': {
+          name: 'TankAlien',
+          modelPath: 'asset3D/monster/tank alien.glb',
+          position: { x: 0, y: 0, z: -3000 },
+          scale: 50,
+          health: 4000,
+          triggerDistance: 1800,
+          attackRange: 1400,
+          damage: 40,
+          projectileSpeed: 170,
+          projectileColor: 0xffaa00,
+          hideNodes: ['pPlane1'],
+          fillLight: true,
+          animationName: null,
+          lodDetail: 140,
+          lodColor: 0xffaa00,
+          lodDistance: 2800,
+        },
+      };
+      return configs[name] || configs['Argus'];
+    }
+
+    window.onload = function () {
+      app.initEngine();
+      app.setupRaycaster();
+      app.createStarfield();
+      app.createWarpTunnel();
+
+      // Spawn player ship (same as index.html)
+      app.createProceduralSpaceships();
+
+      // Position camera to face the boss at (0, 0, -3000)
+      app.camera.position.set(0, 100, -2800);
+      app.camera.lookAt(0, 0, -3000);
+      app.controls.target.set(0, 0, -3000);
+      app.controls.update();
+      window.bossFight.enablePointerLock();
+
+
+      app.clock = new THREE.Clock();
+      app.animate();
+
+      const loader = new THREE.GLTFLoader();
+      const bossConfig = getBossConfig(BOSS_NAME);
+
+      const targetNameEl = document.getElementById('target-title');
+      if (targetNameEl) targetNameEl.innerText = bossConfig.name;
+      const bossHudNameEl = document.getElementById('boss-hud-name');
+      if (bossHudNameEl) bossHudNameEl.innerText = 'BOS: ' + bossConfig.name;
+
+      const popupTitleEl = document.getElementById('popup-title');
+      if (popupTitleEl) popupTitleEl.innerText = bossConfig.name + ' Info';
+
+      const originalCreateBoss = app.createBoss;
+      app.createBoss = function (config) {
+        const bossGroup = new THREE.Group();
+        bossGroup.name = config.name;
+        bossGroup.position.set(config.position.x, config.position.y, config.position.z);
+        bossGroup.userData = {
+          bossName: config.name,
+          homePosition: new THREE.Vector3(config.position.x, config.position.y, config.position.z),
+        };
+
+        loader.load(
+          config.modelPath,
+          (gltf) => {
+            const model = gltf.scene;
+            model.traverse((child) => {
+              if (config.hideNodes && config.hideNodes.includes(child.name)) {
+                child.visible = false;
+              }
+              if (child.isMesh) {
+                child.castShadow = !config.disableShadows;
+                child.receiveShadow = !config.disableShadows;
+              }
+            });
+            model.scale.set(config.scale, config.scale, config.scale);
+            model.position.set(0, 0, 0);
+            bossGroup.add(model);
+            if (config.configureMaterials) app.configureBossMaterials(model);
+
+            bossGroup.userData.health = config.health;
+            bossGroup.userData.maxHealth = config.health;
+            bossGroup.userData.damage = config.damage;
+            bossGroup.userData.attackRange = config.attackRange;
+            bossGroup.userData.triggerDistance = config.triggerDistance;
+            bossGroup.userData.projectileSpeed = config.projectileSpeed;
+            bossGroup.userData.projectileColor = config.projectileColor;
+            bossGroup.userData.proceduralMotion = config.proceduralMotion || null;
+            bossGroup.userData.motionTime = 0;
+
+            // Putar animasi bawaan GLB, termasuk saat animationName tidak diisi.
+            // Pemilihan clip dilakukan otomatis (idle/walk/attack bila tersedia).
+            if (!config.disableModelAnimations) {
+              app.setupBossAnimations(bossGroup, model, gltf.animations, config.animationName);
+            }
+
+            if (config.fillLight) {
+              const fill = new THREE.HemisphereLight(0xddeeff, 0x554536, 1.8);
+              fill.position.set(0, 250, 0);
+              bossGroup.add(fill);
+
+              const keyLight = new THREE.DirectionalLight(0xffe4b8, 1.6);
+              keyLight.position.set(250, 400, 350);
+              keyLight.target.position.set(0, 0, 0);
+              bossGroup.add(keyLight, keyLight.target);
+            }
+
+            app.scene.add(bossGroup);
+            app.combat.bosses[config.name] = {
+              mesh: bossGroup,
+              health: config.health,
+              maxHealth: config.health,
+              damage: config.damage,
+              attackRange: config.attackRange,
+              triggerDistance: config.triggerDistance,
+              projectileSpeed: config.projectileSpeed,
+              projectileColor: config.projectileColor,
+              lastShot: 0,
+            };
+
+            window.bossFight.boss = bossGroup;
+            window.bossFight.bossName = config.name;
+
+            document.getElementById('boss-loading').classList.add('hidden');
+
+            const bossHealthLabel = document.getElementById('boss-hud-health-label');
+            if (bossHealthLabel) bossHealthLabel.innerText = Math.ceil(config.health) + ' / ' + config.health;
+
+            const popupDamage = document.getElementById('popup-damage');
+            if (popupDamage) popupDamage.innerText = config.damage;
+
+            const popupRange = document.getElementById('popup-range');
+            if (popupRange) popupRange.innerText = config.attackRange + ' u';
+
+            const popupFact = document.getElementById('popup-fact');
+            if (popupFact) popupFact.innerText = 'Bos ' + config.name + ' siap bertarung. Health: ' + config.health + ', Damage: ' + config.damage;
+
+          },
+          (xhr) => {
+            const pct = (xhr.loaded / xhr.total * 100);
+            document.getElementById('loading-bar').style.width = pct + '%';
+            document.getElementById('loading-text').innerText = 'Memuat ' + config.name + '... ' + Math.round(pct) + '%';
+          },
+          (error) => {
+            console.error('Failed to load boss model:', error);
+            document.getElementById('loading-text').innerText = 'Gagal memuat model bos.';
+          }
+        );
+
+        return bossGroup;
+      };
+
+      app.createBoss(bossConfig);
+      app.audio.init();
+      app.audio.initAmbient();
+
+      window.bossFight.init();
+
+      const volInput = document.getElementById('audio-volume');
+      const muteBtn = document.getElementById('btn-audio-mute');
+      if (volInput) {
+        volInput.addEventListener('input', (e) => app.audio.setVolume(parseFloat(e.target.value)));
+      }
+      if (muteBtn) {
+        muteBtn.addEventListener('click', () => {
+          const muted = app.audio.toggleMute();
+          muteBtn.innerHTML = muted ? '<i class="fa-solid fa-volume-mute"></i>' : '<i class="fa-solid fa-volume-up"></i>';
+          muteBtn.classList.toggle('bg-slate-600', muted);
+          muteBtn.classList.toggle('text-slate-400', muted);
+        });
+      }
+
+      const exitBtn = document.getElementById('btn-exit-boss-fight');
+      if (exitBtn) {
+        exitBtn.addEventListener('click', exitBossFight);
+      }
+
+      window.addEventListener('resize', onWindowResize);
+    };
+  </script>
+</body>
+</html>

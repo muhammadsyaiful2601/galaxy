@@ -8,6 +8,14 @@ app.setupRaycaster = function () {
   window.addEventListener('contextmenu', (e) => e.preventDefault());
 
   const canvas = app.renderer.domElement;
+  if (document.body.classList.contains('index-page')) {
+    app.pointerLockLookEnabled = true;
+    app.enablePointerLockLook(canvas);
+    // Minta pointer lock langsung dari event gesture pada canvas agar browser
+    // mengenalinya sebagai interaksi pengguna yang valid.
+    canvas.addEventListener('click', () => app.requestPointerLockLook());
+  }
+
   canvas.addEventListener('pointerdown', (event) => {
     if (app.currentViewMode !== '1st' || event.button !== 0) return;
 
@@ -79,8 +87,52 @@ function onPointerClick(event) {
       hitObj = hitObj.parent;
     }
     app.selectTargetObject(hitObj);
+    return;
   }
+
 }
+
+app.enablePointerLockLook = function (canvas) {
+  app.pointerLockCanvas = canvas;
+  app.requestPointerLockLook = function () {
+    if (document.pointerLockElement === app.pointerLockCanvas) return;
+    const request = app.pointerLockCanvas.requestPointerLock();
+    if (request && typeof request.catch === 'function') {
+      request.catch(() => app.showToast('KLIK AREA KOSONG UNTUK MENGUNCI KURSOR'));
+    }
+  };
+
+  document.addEventListener('pointerlockchange', () => {
+    const locked = document.pointerLockElement === app.pointerLockCanvas;
+    document.body.classList.toggle('pointer-look-locked', locked);
+    if (locked) {
+      app._pointerLookPreviousDamping = app.controls.enableDamping;
+      app._pointerLookPreviousControlsEnabled = app.controls.enabled;
+      app._pointerLookEuler = new THREE.Euler().setFromQuaternion(app.camera.quaternion, 'YXZ');
+    }
+    app.controls.enableDamping = locked ? false : app._pointerLookPreviousDamping;
+    app.controls.enabled = locked ? false : app._pointerLookPreviousControlsEnabled;
+  });
+
+  document.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement !== app.pointerLockCanvas) return;
+    const sensitivity = 0.0022;
+    app._pointerLookEuler.y -= event.movementX * sensitivity;
+    app._pointerLookEuler.x = THREE.MathUtils.clamp(
+      app._pointerLookEuler.x - event.movementY * sensitivity,
+      -Math.PI / 2 + 0.05,
+      Math.PI / 2 - 0.05
+    );
+    app.camera.quaternion.setFromEuler(app._pointerLookEuler);
+    app.camera.getWorldDirection(app._lookDirection);
+    app.controls.target.copy(app.camera.position).addScaledVector(app._lookDirection, 100);
+    app.controls.update();
+  });
+
+  document.addEventListener('pointerlockerror', () => {
+    app.showToast('KURSOR TIDAK DAPAT DIKUNCI DI BROWSER INI');
+  });
+};
 
 app.selectTargetObject = function (targetObj) {
   app.activeTarget = targetObj;
@@ -95,7 +147,11 @@ app.selectTargetObject = function (targetObj) {
 
 app.selectTargetByName = function (name) {
   const found = app.celestialNodes.find((n) => n.name === name);
-  if (found) app.selectTargetObject(found);
+  if (found) { app.selectTargetObject(found); return; }
+
+  // Cari juga di daftar bos
+  const boss = app.bosses.find((b) => b.name === name);
+  if (boss) app.selectTargetObject(boss);
 };
 
 app.flyToNodeByName = function (name) {
@@ -113,13 +169,16 @@ app.warpToCurrentTarget = function (customDuration = null) {
 
   const targetRadius = app.solarBodyRadii[app.warpTarget.name] || 0;
   const minWarpDistance = targetRadius ? Math.max(targetRadius * 1.1, 0.001) : 8;
-  const MAX_WARP_DIST = 200000;
   if (currentDist < minWarpDistance) {
     app.showToast('WARP BLOCKED: Target terlalu dekat');
     return;
   }
-  if (currentDist > MAX_WARP_DIST) {
-    app.showToast('WARP BLOCKED: Jarak terlalu jauh (max ' + MAX_WARP_DIST + ' unit)');
+
+  // Jika jarak sangat jauh, tampilkan popup konfirmasi dengan estimasi waktu
+  const WARP_CONFIRM_DIST = 50000;
+  if (!app._skipWarpConfirm && currentDist > WARP_CONFIRM_DIST) {
+    app._pendingWarp = { target: app.warpTarget, dist: currentDist };
+    showWarpConfirm(currentDist, app.warpTarget.name || 'Target');
     return;
   }
 
@@ -253,7 +312,15 @@ app.warpToCurrentTarget = function (customDuration = null) {
 
     let duration = customDuration;
     if (!duration) {
-      duration = Math.max(2.6, Math.min(60, currentDist * 0.006));
+      const shipSpeed = app.warpSpeedMap ? app.warpSpeedMap[app.currentShipType] : 1500;
+      // Durasi warp = jarak / kecepatan persis, tanpa batasan maksimal,
+      // agar ETA di popup konfirmasi cocok dengan waktu aktual sampai.
+      duration = Math.max(1.0, currentDist / shipSpeed);
+
+      // UFO: kecepatan melebihi cahaya — maksa tiba di bawah 5 detik, maksimal 10 detik
+      if (app.currentShipType === 'ufo') {
+        duration = Math.min(duration, 10);
+      }
     }
 
     app.currentWarpTL = gsap.timeline({
@@ -430,7 +497,7 @@ app.selectShip = function (shipType) {
   app.currentShipType = shipType;
 
   app.audio.playClick('ship');
-  app.audio.playShipSound(shipType);
+  app.audio.playShipSound(shipType, 'idle');
 
   app.showToast('SPACECRAFT DEPLOYED: ' + shipType.toUpperCase());
 };
@@ -464,7 +531,7 @@ app.setViewMode = function (mode) {
   } else {
     // Putar kembali sound kapal saat kembali dari mode free
     if (app.currentShipType && app.audio && typeof app.audio.playShipSound === 'function') {
-      app.audio.playShipSound(app.currentShipType);
+      app.audio.playShipSound(app.currentShipType, 'idle');
     }
   }
   app.controls.enabled = mode !== '1st' && !app.isWarping;
@@ -563,6 +630,87 @@ app.closePlanetPopup = function () {
 
 window.showPlanetPopup = app.showPlanetPopup;
 window.closePlanetPopup = app.closePlanetPopup;
+
+// ============================================================
+// Warp Distance Confirmation Popup
+// ============================================================
+app._pendingWarp = null;
+app._skipWarpConfirm = false;
+
+function formatETA(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  if (m > 0) return m + ' menit ' + s + ' detik';
+  return s + ' detik';
+}
+
+app.showWarpConfirm = function (dist, targetName) {
+  const shipType = app.currentShipType || 'recon';
+  const speed = app.warpSpeedMap ? app.warpSpeedMap[shipType] : 1500;
+  const etaSeconds = dist / speed;
+  const etaText = formatETA(etaSeconds);
+  const shipLabels = { recon: 'RECON', heavy: 'HEAVY SHIP', ufo: 'ALIEN UFO' };
+  const shipLabel = shipLabels[shipType] || shipType.toUpperCase();
+  const isUFO = shipType === 'ufo';
+  const etaMinutes = etaSeconds / 60;
+  const warning = !isUFO && etaMinutes > 1
+    ? '\n\nPERINGATAN: Kapal ini membutuhkan lebih dari 1 menit untuk mencapai target ini. Hanya ALIEN UFO yang dapat menjelajahi semuanya dalam waktu singkat.'
+    : '';
+
+  document.getElementById('warp-confirm-title').innerText = 'KONFIRMASI WARP';
+  document.getElementById('warp-confirm-message').innerText =
+    'Jarak ke ' + targetName + ' sangat jauh.\nApakah Anda ingin melanjutkan perjalanan?' + warning;
+  document.getElementById('warp-confirm-target').innerText = targetName;
+  document.getElementById('warp-confirm-distance').innerText = dist.toFixed(0) + ' unit';
+  document.getElementById('warp-confirm-ship').innerText = shipLabel;
+  document.getElementById('warp-confirm-eta').innerText = etaText;
+
+  const popup = document.getElementById('warp-confirm-popup');
+  popup.style.opacity = '1';
+  popup.style.pointerEvents = 'auto';
+  popup.classList.remove('scale-95');
+  popup.classList.add('scale-100');
+};
+
+window.showWarpConfirm = app.showWarpConfirm;
+
+app.cancelWarpConfirm = function () {
+  const popup = document.getElementById('warp-confirm-popup');
+  popup.style.opacity = '0';
+  popup.style.pointerEvents = 'none';
+  popup.classList.remove('scale-100');
+  popup.classList.add('scale-95');
+  app._pendingWarp = null;
+  if (app.audio && typeof app.audio.playClick === 'function') app.audio.playClick('ui');
+};
+
+window.cancelWarpConfirm = app.cancelWarpConfirm;
+
+app.confirmWarp = function (accept) {
+  const popup = document.getElementById('warp-confirm-popup');
+  popup.style.opacity = '0';
+  popup.style.pointerEvents = 'none';
+  popup.classList.remove('scale-100');
+  popup.classList.add('scale-95');
+
+  if (!accept) {
+    app._pendingWarp = null;
+    if (app.audio && typeof app.audio.playClick === 'function') app.audio.playClick('ui');
+    return;
+  }
+
+  const pending = app._pendingWarp;
+  app._pendingWarp = null;
+  if (!pending) return;
+
+  app._skipWarpConfirm = true;
+  app.warpTarget = pending.target;
+  app.activeTarget = pending.target;
+  app.warpToCurrentTarget();
+  app._skipWarpConfirm = false;
+};
+
+window.confirmWarp = app.confirmWarp;
 
 // Expose all handlers to window for inline HTML onclick
 window.warpToCurrentTarget = app.warpToCurrentTarget;

@@ -62,11 +62,24 @@ app.combat = {
   effects: [],
 };
 
-// Kecepatan gerak per tipe spaceship (satuan per detik)
+// Kecepatan penerbangan normal (WASD) per tipe spaceship (satuan per detik)
 app.shipSpeedMap = {
   recon: 45,
   heavy: 9,
   ufo: 450
+};
+
+// Kecepatan WARP per tipe spaceship (satuan per detik)
+// Skala jarak menggunakan AU nyata (1 AU = 30000 world unit).
+// Kecepatan disesuaikan sehingga ETA (jarak / kecepatan) cocok persis dengan waktu warp aktual.
+// Neptunus ≈ 30 AU = 903.300 unit:
+//   recon 1500 u/s  → Neptunus ~10 menit
+//   heavy 500 u/s   → Neptunus ~30 menit
+//   ufo 20000 u/s   → Neptunus ~45 detik (di bawah 1 menit)
+app.warpSpeedMap = {
+  recon: 1500,
+  heavy: 500,
+  ufo: 300000
 };
 
 // State tampilan UI (hide/show)
@@ -233,7 +246,7 @@ app.initEngine = function () {
   app.scene.fog = new THREE.FogExp2(0x020205, 0.00005);
   app.scene.background = new THREE.Color(0x020205);
 
-  app.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 200000);
+  app.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 5000000);
   app.camera.position.set(-200, 80, 240);
   app.camera.lookAt(0, 0, 0);
   app.scene.add(app.camera);
@@ -248,7 +261,7 @@ app.initEngine = function () {
   app.controls = new THREE.OrbitControls(app.camera, app.renderer.domElement);
   app.controls.enableDamping = true;
   app.controls.dampingFactor = 0.04;
-  app.controls.maxDistance = 150000;
+  app.controls.maxDistance = 1000000;
   app.controls.minDistance = 0.001;
   const initialLookDirection = new THREE.Vector3();
   app.camera.getWorldDirection(initialLookDirection);
@@ -591,7 +604,7 @@ app.createSolarSystem = function () {
     app.sunLight.position.copy(sunGroup.position);
   });
 
-  const sunRadiusWorld = 696340 / KM_PER_WORLD_UNIT;
+  const sunRadiusWorld = (696340 / KM_PER_WORLD_UNIT) * SUN_VISUAL_SCALE;
   app.solarBodyRadii.Sun = sunRadiusWorld;
   const coronaGeo = new THREE.SphereGeometry(sunRadiusWorld * 1.2, 64, 64);
   const coronaMat = new THREE.MeshBasicMaterial({
@@ -956,7 +969,7 @@ app.createWarpTunnel = function () {
 app.createAndromeda = function () {
   const andromedaGroup = new THREE.Group();
   andromedaGroup.name = 'Andromeda';
-  andromedaGroup.position.set(4200, 0, -3600);
+  andromedaGroup.position.set(59500, 0, -180000);
   app.scene.add(andromedaGroup);
   app.celestialNodes.push(andromedaGroup);
   app.addDistanceLOD(andromedaGroup, 145, 0xffd700, 2500);
@@ -1017,7 +1030,7 @@ app.createAndromeda = function () {
 app.createTriangulum = function () {
     const group = new THREE.Group();
     group.name = 'Triangulum';
-    group.position.set(-5800, 200, -4900);
+    group.position.set(-440500, 10000, -245000);
 
     const segs = app.getSegmentCount(64);
     const core = new THREE.Mesh(
@@ -1054,7 +1067,7 @@ app.createTriangulum = function () {
 app.createSombrero = function () {
     const group = new THREE.Group();
     group.name = 'Sombrero';
-    group.position.set(7100, -800, -2400);
+    group.position.set(204500, -40000, -120000);
 
     const segs = app.getSegmentCount(64);
     const core = new THREE.Mesh(
@@ -1084,7 +1097,7 @@ app.createSombrero = function () {
 app.createTheVoid = function () {
     const group = new THREE.Group();
     group.name = 'The Void';
-    group.position.set(-9200, 3000, -6100);
+    group.position.set(-610500, 150000, -305000);
 
     const segs = app.getSegmentCount(64);
     const sphere = new THREE.Mesh(
@@ -1116,7 +1129,7 @@ app.createTheVoid = function () {
 app.createPillarsOfCreation = function () {
     const group = new THREE.Group();
     group.name = 'Pillars of Creation';
-    group.position.set(3100, -1500, 6800);
+    group.position.set(4500, -75000, 340000);
 
     const segs = app.getSegmentCount(16);
     const pillarColor = 0xd97706;
@@ -1156,7 +1169,7 @@ app.createPillarsOfCreation = function () {
 app.createBlackHole = function () {
     const group = new THREE.Group();
     group.name = 'Sagittarius A*';
-    group.position.set(4000, 0, 0);
+    group.position.set(1149500, 0, 0);
 
     const loader = new THREE.GLTFLoader();
     loader.load('asset3D/object/black_hole.glb', (gltf) => {
@@ -1305,7 +1318,7 @@ app.createSupercluster = function (name, color, radius, pos) {
 app.createGalaxyCenter = function () {
   const centerGroup = new THREE.Group();
   centerGroup.name = 'Galaxy Center';
-  centerGroup.position.set(0, 0, 0);
+    centerGroup.position.set(-150500, 0, 0);
   app.scene.add(centerGroup);
   app.celestialNodes.push(centerGroup);
 };

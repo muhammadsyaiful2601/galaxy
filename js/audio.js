@@ -35,6 +35,13 @@ window.app.audio = {
   reconAudio: null,
   heavyAudio: null,
   ufoAudio: null,
+  reconEngineAudio: null,
+  heavyEngineAudio: null,
+  ufoEngineAudio: null,
+  shipSoundAudio: null,
+  shipAudioElements: [],
+  shootAudioPool: [],
+  shootAudioIndex: 0,
 
   // State
   dronePlaying: false,
@@ -111,6 +118,30 @@ window.app.audio = {
     if (this.ambientAudio) return;
     this.ambientAudio = new Audio('sound/ambient-sound.mp3');
     this.ambientAudio.loop = true;
+  },
+
+  // ---------- Boss Fight Music ----------
+  initBossMusic: function () {
+    if (this.bossAudio) return;
+    this.bossAudio = new Audio('sound/bos fight.mp3');
+    this.bossAudio.loop = true;
+    this.bossAudio.volume = this.volume * 0.5;
+  },
+
+  playBossMusic: function () {
+    if (!this.initialized) this.init();
+    this.initBossMusic();
+    if (this.muted) return;
+    this.bossAudio.play().catch(e => console.warn("Boss music play failed:", e));
+  },
+
+  stopBossMusic: function () {
+    if (this.bossAudio) {
+      this.bossAudio.pause();
+      this.bossAudio.currentTime = 0;
+    }
+  },
+  playAmbient: function () {
     this.ambientAudio.volume = this.volume * this.ambientNormalVolume;
     this.ambientAudio.play().catch(e => {
       document.addEventListener('pointerdown', () => this.ambientAudio.play().catch(() => {}), { once: true });
@@ -146,62 +177,82 @@ window.app.audio = {
 
   // ---------- MP3 Spaceship sounds ----------
 
-  playShipSound: function (shipType) {
-    if (this.muted) return;
+  playShipSound: function (shipType, mode = 'moving') {
+    const isIdle = mode === 'idle';
+    const useEngineSound = !isIdle;
+    const audioConfig = {
+      recon: {
+        property: useEngineSound ? 'reconEngineAudio' : 'reconAudio',
+        path: useEngineSound ? 'sound/recon engine.mp3' : 'sound/recon sound.mp3',
+      },
+      heavy: {
+        property: useEngineSound ? 'heavyEngineAudio' : 'heavyAudio',
+        path: useEngineSound ? 'sound/engine heavy.mp3' : 'sound/heavy sound.mp3',
+      },
+      ufo: {
+        property: useEngineSound ? 'ufoEngineAudio' : 'ufoAudio',
+        path: useEngineSound ? 'sound/ufo engine.mp3' : 'sound/ufo sound.mp3',
+      },
+    }[shipType];
+    if (!audioConfig) return;
 
-    // Jika sudah sedang memutar ship type yang sama, jangan memutar ulang
-    if (this.shipSoundPlaying === shipType) return;
-
-    // Stop sound kapal sebelumnya jika ada
+    const soundKey = shipType + ':' + mode;
+    if (this.shipSoundPlaying === soundKey && this.shipSoundAudio && !this.shipSoundAudio.paused) return;
     this.stopShipSound();
 
-    let audioEl;
-    switch (shipType) {
-      case 'recon':
-        if (!this.reconAudio) {
-          this.reconAudio = new Audio('sound/recon sound.mp3');
-          this.reconAudio.loop = true;
-          this.reconAudio.volume = this.volume * 0.6;
-        }
-        audioEl = this.reconAudio;
-        break;
-      case 'heavy':
-        if (!this.heavyAudio) {
-          this.heavyAudio = new Audio('sound/heavy sound.mp3');
-          this.heavyAudio.loop = true;
-          this.heavyAudio.volume = this.volume * 0.6;
-        }
-        audioEl = this.heavyAudio;
-        break;
-      case 'ufo':
-        if (!this.ufoAudio) {
-          this.ufoAudio = new Audio('sound/ufo sound.mp3');
-          this.ufoAudio.loop = true;
-          this.ufoAudio.volume = this.volume * 0.6;
-        }
-        audioEl = this.ufoAudio;
-        break;
-      default:
-        return;
+    let audioEl = this[audioConfig.property];
+    if (!audioEl) {
+      audioEl = new Audio(audioConfig.path);
+      audioEl.loop = true;
+      audioEl._shipVolumeScale = useEngineSound ? 0.6 : 0.35;
+      this[audioConfig.property] = audioEl;
+      this.shipAudioElements.push(audioEl);
     }
 
+    audioEl.volume = this.muted ? 0 : this.volume * audioEl._shipVolumeScale;
     audioEl.currentTime = 0;
-    audioEl.play().catch(e => console.log('Ship sound play failed (' + shipType + '):', e));
-    this.shipSoundPlaying = shipType;
+    audioEl.play().catch((e) => console.log('Ship sound play failed (' + soundKey + '):', e));
+    this.shipSoundAudio = audioEl;
+    this.shipSoundPlaying = soundKey;
   },
 
   stopShipSound: function () {
-    if (this.shipSoundPlaying) {
-      const prevType = this.shipSoundPlaying;
-      const prevAudio = this.shipSoundPlaying === 'recon' ? this.reconAudio
-        : this.shipSoundPlaying === 'heavy' ? this.heavyAudio
-        : this.ufoAudio;
-      if (prevAudio) {
-        prevAudio.pause();
-        prevAudio.currentTime = 0;
-      }
-      this.shipSoundPlaying = null;
+    if (this.shipSoundAudio) {
+      this.shipSoundAudio.pause();
+      this.shipSoundAudio.currentTime = 0;
     }
+    this.shipSoundAudio = null;
+    this.shipSoundPlaying = null;
+  },
+
+  updateShipAudioVolumes: function () {
+    this.shipAudioElements.forEach((audioEl) => {
+      audioEl.volume = this.muted ? 0 : this.volume * audioEl._shipVolumeScale;
+    });
+  },
+
+  playShootSound: function () {
+    if (!this.initialized) this.init();
+    if (this.muted) return;
+
+    if (this.shootAudioPool.length === 0) {
+      for (let i = 0; i < 4; i++) {
+        const audioEl = new Audio('sound/shoot effect.mp3');
+        audioEl.volume = this.volume * 0.65;
+        this.shootAudioPool.push(audioEl);
+      }
+    }
+
+    const audioEl = this.shootAudioPool[this.shootAudioIndex];
+    this.shootAudioIndex = (this.shootAudioIndex + 1) % this.shootAudioPool.length;
+    audioEl.currentTime = 0;
+    audioEl.play().catch((e) => console.log('Shoot sound play failed:', e));
+  },
+
+  updateShootAudioVolumes: function () {
+    this.shootAudioPool.forEach((audioEl) => {
+      audioEl.volume = this.muted ? 0 : this.volume * 0.65;
+    });
   },
 
   // ---------- Warp sound ----------
@@ -370,6 +421,8 @@ window.app.audio = {
     if (this.reconAudio) this.reconAudio.volume = this.muted ? 0 : this.volume * 0.6;
     if (this.heavyAudio) this.heavyAudio.volume = this.muted ? 0 : this.volume * 0.6;
     if (this.ufoAudio) this.ufoAudio.volume = this.muted ? 0 : this.volume * 0.6;
+    this.updateShipAudioVolumes();
+    this.updateShootAudioVolumes();
   },
 
   toggleMute: function () {
@@ -381,6 +434,8 @@ window.app.audio = {
     if (this.reconAudio) this.reconAudio.volume = this.muted ? 0 : this.volume * 0.6;
     if (this.heavyAudio) this.heavyAudio.volume = this.muted ? 0 : this.volume * 0.6;
     if (this.ufoAudio) this.ufoAudio.volume = this.muted ? 0 : this.volume * 0.6;
+    this.updateShipAudioVolumes();
+    this.updateShootAudioVolumes();
     return this.muted;
   },
 
@@ -392,5 +447,7 @@ window.app.audio = {
     if (this.reconAudio) this.reconAudio.volume = muted ? 0 : this.volume * 0.6;
     if (this.heavyAudio) this.heavyAudio.volume = muted ? 0 : this.volume * 0.6;
     if (this.ufoAudio) this.ufoAudio.volume = muted ? 0 : this.volume * 0.6;
+    this.updateShipAudioVolumes();
+    this.updateShootAudioVolumes();
   }
 };

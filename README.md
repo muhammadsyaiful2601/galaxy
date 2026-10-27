@@ -7,7 +7,7 @@ Simulasi ruang angkasa 3D interaktif dengan sistem planet, glitch warp drive, da
 ## Fitur Utama
 
 - 🪐 **Sistem Tata Surya** — 8 planet (Mercury–Neptune) dengan model GLB 3D, orbit, dan rotasi
-- 🕰️ **Orbit realtime berskala fisik** — Ukuran Matahari, planet, bulan, cincin Saturnus, serta jarak orbit memakai satu skala konsisten: 100 unit dunia = 1 AU. Posisi dihitung dari elemen Keplerian J2000 dan waktu UTC aktual; rotasi planet dan periode bulan mengikuti nilai sidereal. Kepler-186f tetap ilustratif karena berada di luar Tata Surya dan bintang induknya tidak dimodelkan.
+- 🕰️ **Orbit realtime berskala fisik** — Ukuran Matahari, planet, bulan, cincin Saturnus, serta jarak orbit memakai satu skala konsisten: 30000 unit dunia = 1 AU. Rasio ukuran planet sebanding dengan jarak orbit dipertahankan 1:1 (unit dunia ≈ 4.987 km); ukuran rendernya diperbesar sehingga Matahari dan planet terlihat jelas dari kamera, sambil proporsi fisik antara ukuran planet dan jarak orbit tetap utuh. Kepler-186f tetap ilustratif karena berada di luar Tata Surya dan bintang induknya tidak dimodelkan.
 - 🗓️ **Kalender & jam WIB** — Tanggal dan waktu realtime ditampilkan dalam zona `Asia/Jakarta` (WIB); rotasi memakai waktu presisi tinggi agar gerakannya tetap halus.
 - 🕳️ **Sagittarius A\*** — Lubang hitam supermacia dengan model GLB 31.3 MB, akresi disk, glow, dan distorti procedural
 - ☀️ **Matahari** — Model GLB 3D dengan efek cahaya
@@ -120,7 +120,7 @@ Saat meneklam **Engage Warp**:
 
 ## Skala Tata Surya
 
-Ukuran Matahari, delapan planet, bulan utama yang ditampilkan, cincin Saturnus, dan jarak orbit Tata Surya menggunakan rasio fisik 1:1. Konversi scene-nya adalah 100 unit dunia per AU (1 unit dunia = 1.495.978,707 km). Karena rasio ukuran planet terhadap jarak orbit memang sangat kecil, planet akan tampak kecil dari jarak antariksa; gunakan zoom kamera untuk melihat permukaannya. Kapal pemain, UFO, objek fiksi, latar galaksi, dan Kepler-186f tidak termasuk skala Tata Surya ini.
+Ukuran Matahari, delapan planet, bulan utama yang ditampilkan, cincin Saturnus, dan jarak orbit Tata Surya menggunakan rasio fisik 1:1. Konversi scene-nya adalah 3000 unit dunia per AU (1 unit dunia = 49.865,3 km). Rasio ukuran planet terhadap jarak orbit dipertahankan 1:1, tetapi planet diperbesar secara proporsional agar terlihat dari kamera (planet planet sebanding dengan ukuran aslinya dalam km). Kapal pemain, UFO, objek fiksi, latar galaksi, dan Kepler-186f tidak termasuk skala Tata Surya ini.
 
 ## Model 3D (GLB)
 

@@ -20,9 +20,13 @@
   <script src="js/audio.js"></script>
   <script src="js/interaction.js"></script>
   <script src="js/animate.js"></script>
+  <script src="js/bosses/boss-base.js"></script>
+  <script src="js/bosses/argus-boss.js"></script>
+  <script src="js/bosses/mothership-boss.js"></script>
+  <script src="js/bosses/tankalien-boss.js"></script>
   <script src="js/main.js"></script>
 </head>
-<body class="relative w-screen h-screen overflow-hidden">
+<body class="index-page relative w-screen h-screen overflow-hidden">
 
   <div class="scan-line"></div>
 
@@ -75,6 +79,31 @@
       </div>
       <div class="h-1.5 rounded bg-slate-800 overflow-hidden">
         <div id="ufo-health-fill" class="h-full w-full bg-rose-400 transition-[width] duration-150"></div>
+      </div>
+    </div>
+    <!-- Boss Health Bars -->
+    <div class="mt-2 border-t border-slate-700/50 pt-2">
+      <div class="flex justify-between text-[9px] font-orbitron text-slate-300 mb-1">
+        <span>BOS: ARGUS</span><span id="boss-health-label-Argus">NEUTRAL</span>
+      </div>
+      <div class="h-1.5 rounded bg-slate-800 overflow-hidden">
+        <div id="boss-health-fill-Argus" class="h-full w-full bg-orange-500 transition-[width] duration-150"></div>
+      </div>
+    </div>
+    <div class="mt-1 border-t border-slate-700/50 pt-1">
+      <div class="flex justify-between text-[9px] font-orbitron text-slate-300 mb-1">
+        <span>BOS: MOTHERSHIP</span><span id="boss-health-label-Mothership">NEUTRAL</span>
+      </div>
+      <div class="h-1.5 rounded bg-slate-800 overflow-hidden">
+        <div id="boss-health-fill-Mothership" class="h-full w-full bg-cyan-500 transition-[width] duration-150"></div>
+      </div>
+    </div>
+    <div class="mt-1 border-t border-slate-700/50 pt-1">
+      <div class="flex justify-between text-[9px] font-orbitron text-slate-300 mb-1">
+        <span>BOS: TANK ALIEN</span><span id="boss-health-label-TankAlien">NEUTRAL</span>
+      </div>
+      <div class="h-1.5 rounded bg-slate-800 overflow-hidden">
+        <div id="boss-health-fill-TankAlien" class="h-full w-full bg-yellow-500 transition-[width] duration-150"></div>
       </div>
     </div>
   </div>
@@ -218,8 +247,12 @@
           <span class="text-white font-mono font-medium">Warp</span>
         </div>
         <div class="flex justify-between text-xs sm:text-sm md:text-base">
-          <span class="text-slate-300">L-click drag:</span>
-          <span id="control-look-action" class="text-white font-mono font-medium">Orbit</span>
+          <span class="text-slate-300">Klik area permainan:</span>
+          <span id="control-look-action" class="text-white font-mono font-medium">Arahkan kamera</span>
+        </div>
+        <div class="flex justify-between text-xs sm:text-sm md:text-base">
+          <span class="text-slate-300">Escape:</span>
+          <span class="text-white font-mono font-medium">Tampilkan kursor</span>
         </div>
         <div class="flex justify-between text-xs sm:text-sm md:text-base">
           <span class="text-slate-300">Scroll:</span>
@@ -356,6 +389,15 @@
         <button onclick="flyToNodeByName('Autonomous Alien UFO')" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
           <span>🛸</span><span>Alien UFO</span><span class="text-xs opacity-50 ml-1">Craft</span>
         </button>
+        <button onclick="window.location.href='boss-fight.html?boss=Argus'" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>👹</span><span>Argus</span><span class="text-xs opacity-50 ml-1">Boss</span>
+        </button>
+        <button onclick="window.location.href='boss-fight.html?boss=Mothership'" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🛸</span><span>Mothership</span><span class="text-xs opacity-50 ml-1">Boss</span>
+        </button>
+        <button onclick="window.location.href='boss-fight.html?boss=TankAlien'" class="warp-btn flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 text-slate-200 font-orbitron text-[10px] font-semibold whitespace-nowrap transition-all shrink-0">
+          <span>🛡️</span><span>Tank Alien</span><span class="text-xs opacity-50 ml-1">Boss</span>
+        </button>
       </div>
     </div>
   </aside>
@@ -396,6 +438,43 @@
     <div class="mt-4 pt-3 border-t border-white/10 flex justify-end">
       <button onclick="closePlanetPopup()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron text-xs font-bold transition-all">
         Tutup
+      </button>
+    </div>
+  </div>
+
+  <!-- Warp Distance Confirmation Popup -->
+  <div id="warp-confirm-popup" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 hud-panel p-6 rounded-2xl max-w-md w-full mx-4 opacity-0 pointer-events-none transition-opacity duration-300 transform scale-95 ui-panel">
+    <div class="flex justify-between items-start mb-2">
+      <h3 id="warp-confirm-title" class="font-orbitron font-bold text-xl text-white tracking-wider">Konfirmasi Warp</h3>
+      <button onclick="cancelWarpConfirm()" class="w-8 h-8 rounded bg-slate-800 border border-slate-600 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition-all">
+        <i class="fa-solid fa-times text-xs"></i>
+      </button>
+    </div>
+    <p id="warp-confirm-message" class="text-slate-300 leading-relaxed mb-4 text-sm md:text-base"></p>
+    <div id="warp-confirm-details" class="bg-slate-900/50 p-3 rounded border border-slate-800/50 mb-4 text-xs md:text-sm">
+      <div class="flex justify-between mb-1">
+        <span class="text-slate-500">Target</span>
+        <span id="warp-confirm-target" class="text-white font-bold">-</span>
+      </div>
+      <div class="flex justify-between mb-1">
+        <span class="text-slate-500">Jarak</span>
+        <span id="warp-confirm-distance" class="text-white font-bold">-</span>
+      </div>
+      <div class="flex justify-between mb-1">
+        <span class="text-slate-500">Kapal</span>
+        <span id="warp-confirm-ship" class="text-white font-bold">-</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-slate-500">Estimasi waktu</span>
+        <span id="warp-confirm-eta" class="text-white font-bold">-</span>
+      </div>
+    </div>
+    <div class="flex gap-2">sas
+      <button onclick="confirmWarp(true)" id="btn-confirm-warp" class="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-orbitron font-bold text-sm tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+        <i class="fa-solid fa-bolt mr-1"></i> Lanjutkan Warp
+      </button>
+      <button onclick="confirmWarp(false)" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-orbitron font-bold text-sm transition-all">
+        Batal
       </button>
     </div>
   </div>

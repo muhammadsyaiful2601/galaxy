@@ -1,5 +1,5 @@
 const cockpitViewTransforms = {
-  recon: { scale: 2, rotationY: Math.PI, position: [0, 0.1, 0] },
+  recon: { scale: 2, rotationY: Math.PI, position: [0, 0,0] },
   heavy: { scale: 2, rotationY: Math.PI, position: [0, 0, 0] },
   ufo: { scale: 2, rotationY: Math.PI, position: [0, 0, 0] },
 };
@@ -281,18 +281,14 @@ app.animate = function () {
       app.audio.playEngine(true);
     }
     if (app.audio && typeof app.audio.playShipSound === 'function') {
-      if (app._lastShipSoundType !== app.currentShipType) {
-        app.audio.playShipSound(app.currentShipType);
-        app._lastShipSoundType = app.currentShipType;
-      }
+      app.audio.playShipSound(app.currentShipType, 'moving');
     }
   } else {
     if (app.audio && typeof app.audio.playEngine === 'function') {
       app.audio.playEngine(false);
     }
-    if (app.audio && typeof app.audio.stopShipSound === 'function') {
-      app.audio.stopShipSound();
-      app._lastShipSoundType = null;
+    if (app.audio && typeof app.audio.playShipSound === 'function') {
+      app.audio.playShipSound(app.currentShipType, 'idle');
     }
   }
 
@@ -404,6 +400,8 @@ app.animate = function () {
   });
 
   app.updateCombat(delta);
+  app.updateBosses(delta);
+  app.updateBossHUD();
   app.renderer.render(app.scene, app.camera);
 };
 
@@ -466,6 +464,9 @@ app.firePlayerLaser = function () {
   ) return;
 
   combat.playerShotCooldown = 0.24;
+  if (app.audio && typeof app.audio.playShootSound === 'function') {
+    app.audio.playShootSound();
+  }
   app.camera.updateMatrixWorld();
   const direction = app.camera.getWorldDirection(new THREE.Vector3());
   const cameraOrigin = app.camera.getWorldPosition(new THREE.Vector3());
@@ -533,6 +534,25 @@ app.firePlayerLaser = function () {
       app.showToast('UFO DESTROYED — TARGET RESPAWNING');
     } else {
       app.showToast('UFO HIT — IT IS HOSTILE');
+    }
+  }
+
+  // Cek apakah peluru mengenai bos
+  for (let i = app.bosses.length - 1; i >= 0; i--) {
+    const boss = app.bosses[i];
+    const ud = boss.userData;
+    if (!boss.visible) continue;
+    const bossPos = boss.getWorldPosition(new THREE.Vector3());
+    const bossOffset = bossPos.sub(origin);
+    const bossDepth = bossOffset.dot(shotDirection);
+    const bossMiss = bossOffset.addScaledVector(shotDirection, -bossDepth).length();
+    const bossHit = bossDepth > 0 && bossDepth < 2500 && bossMiss < 25;
+    if (bossHit) {
+      combat.hostile = true;
+      app.hitBoss(ud.bossName, 120);
+      app.createCombatExplosion(bossPos, 0xff0040);
+      app.showToast('BOS ' + ud.bossName + ' DIHANTAR!');
+      break;
     }
   }
 };

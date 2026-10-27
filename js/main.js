@@ -14,14 +14,19 @@ window.onload = function () {
   app.createTheVoid();
   app.createPillarsOfCreation();
   app.createBlackHole();
-  app.createGiantStar('Stephenson 2-18', 0xffb347, 28, { x: 19000, y: 500, z: -12000 });
-  app.createGiantStar('UY Scuti', 0xff9aa2, 24, { x: -15600, y: -800, z: 14200 });
-  app.createGiantStar('VY Canis Majoris', 0xffd166, 22, { x: 11200, y: 2100, z: -19800 });
-  app.createGiantStar('R136a1', 0x00ffff, 20, { x: -28000, y: 12000, z: 15000 });
-  app.createGiantStar('Pistol Star', 0x00aaff, 25, { x: 25500, y: 120, z: 900 });
-  app.createEllipticalGalaxy('IC 1101', 0xffd700, 90, { x: 45000, y: -30000, z: 22000 });
-  app.createSupercluster('Hercules-Corona Borealis', 0x8b5cf6, 120, { x: -60000, y: 40000, z: -50000 });
+  app.createGiantStar('Stephenson 2-18', 0xffb347, 28, { x: 799500, y: 25000, z: -600000 });
+  app.createGiantStar('UY Scuti', 0xff9aa2, 24, { x: -930500, y: -40000, z: 710000 });
+  app.createGiantStar('VY Canis Majoris', 0xffd166, 22, { x: 409500, y: 105000, z: -990000 });
+  app.createGiantStar('R136a1', 0x00ffff, 20, { x: -1550500, y: 600000, z: 750000 });
+  app.createGiantStar('Pistol Star', 0x00aaff, 25, { x: 1124500, y: 6000, z: 45000 });
+  app.createEllipticalGalaxy('IC 1101', 0xffd700, 90, { x: 2099500, y: -1500000, z: 1100000 });
+  app.createSupercluster('Hercules-Corona Borealis', 0x8b5cf6, 120, { x: -3150500, y: 2000000, z: -2500000 });
   app.createProceduralSpaceships();
+
+  // Spawn bos-bos luar tata surya (sangat jauh dari Neptunus 0,0,0)
+  app.createArgusBoss();
+  app.createMothershipBoss();
+  app.createTankAlienBoss();
 
   // Initialize audio and start ambient MP3
   app.audio.init();
